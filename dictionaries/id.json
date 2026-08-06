@@ -1,0 +1,161 @@
+{
+  "home": {
+    "hero_eyebrow": "Konsultansi Iklim & Keberlanjutan",
+    "hero_title": "Aksi terukur untuk",
+    "hero_highlight": "masa depan yang tangguh.",
+    "hero_subtitle": "Satubumi menjembatani sains, alam, masyarakat, dan bisnis untuk memberikan kepastian di tengah iklim yang tidak menentu.",
+    "btn_primary": "Buka Rapid-FS",
+    "btn_secondary": "Hubungi Tim Kami",
+    "scroll_text": "Gulir untuk eksplorasi",
+    "bento_heading": "Alasan organisasi terkemuka memercayai metodologi kami.",
+    "bento_subheading": "Kami memadukan ketelitian ilmiah dengan realitas lapangan.",
+    "bento_1_title": "Presisi Berbasis Sains",
+    "bento_1_desc": "Setiap rekomendasi didasarkan pada riset yang ketat, data spasial waktu nyata, dan metodologi ESG yang diakui secara internasional.",
+    "bento_2_title": "Dampak Terukur",
+    "bento_2_desc": "Metrik yang jelas untuk perhitungan karbon dan keanekaragaman hayati — memberikan hasil nyata yang dapat dikuantifikasi.",
+    "bento_3_title": "Pendekatan Lokal Kolaboratif",
+    "bento_3_desc": "Kami berkolaborasi erat dengan masyarakat, pemerintah, dan mitra sektor swasta untuk memastikan kepemilikan lokal dan eksekusi yang berkelanjutan."
+  },
+  "products": {
+    "eyebrow": "Produk & Alat",
+    "title": "Rapid-FS Scoring",
+    "subtitle": "Unggah peta area proyek untuk mendapatkan skor kelayakan yang akurat.",
+    "welcome": "Selamat datang kembali",
+    "spatial_mode": "Mode Spasial",
+    "quick_mode": "Mode Cepat",
+    "location_name": "Nama Lokasi",
+    "ecosystem_type": "Tipe Ekosistem",
+    "upload_label": "Unggah Shapefile (.zip)",
+    "upload_hint": "Seret & lepas file .zip di sini, atau klik untuk memilih",
+    "upload_note": "File .zip harus berisi: .shp, .shx, .dbf, .prj",
+    "area_size": "Luas Area (Hektare)",
+    "duration": "Durasi (Tahun)",
+    "carbon_price": "Harga Karbon ($)",
+    "run_analysis": "Jalankan Analisis Kelayakan",
+    "processing": "Memproses...",
+    "score_label": "Skor Kelayakan",
+    "recommendations": "Rekomendasi",
+    "save": "Simpan Assessment",
+    "download_pdf": "Unduh Laporan PDF",
+    "no_data": "Hasil akan muncul di sini setelah analisis",
+    "login_required": "Login Diperlukan",
+    "login_desc": "Anda harus login untuk menggunakan Rapid-FS.",
+    "login_btn": "Login",
+    "register_btn": "Buat Akun"
+  },
+  "auth": {
+    "login_title": "Selamat datang kembali",
+    "login_subtitle": "Login untuk mengakses tools Rapid-FS",
+    "register_title": "Buat akun",
+    "register_subtitle": "Daftar untuk menggunakan Rapid-FS",
+    "full_name": "Nama Lengkap",
+    "email": "Email",
+    "password": "Password",
+    "login_btn": "Login",
+    "register_btn": "Daftar",
+    "no_account": "Belum punya akun?",
+    "have_account": "Sudah punya akun?"
+  },
+    "services": {
+    "eyebrow": "Pilar Keberlanjutan",
+    "title": "Layanan",
+    "title_highlight": "Unggulan Kami",
+    "subtitle": "Lima pilar layanan utama dengan integrasi keahlian teknis dan pendekatan berbasis data untuk mendukung perjalanan keberlanjutan iklim Anda.",
+    "scope_label": "Ruang Lingkup:",
+    "items": [
+      {
+        "title": "Pengembangan Proyek Karbon",
+        "desc": "Kami mendampingi klien dalam seluruh tahapan pengembangan proyek karbon, mulai dari identifikasi potensi, studi kelayakan, perancangan proyek, penyusunan dokumen, implementasi, hingga proses pemantauan dan evaluasi.",
+        "scopes": [
+          "Penilaian kelayakan proyek karbon.",
+          "Pengembangan strategi mitigasi perubahan iklim.",
+          "Penyusunan metodologi dan dokumen teknis.",
+          "Pendampingan implementasi proyek.",
+          "Pengukuran, pelaporan, dan verifikasi."
+        ]
+      },
+      {
+        "title": "Penilaian Kondisi Dasar (Baseline)",
+        "desc": "Kami menyediakan layanan pengumpulan dan analisis data sebagai dasar pengambilan keputusan yang akurat dan terukur.",
+        "scopes": [
+          "Analisis tutupan & penggunaan lahan.",
+          "Kajian keanekaragaman hayati.",
+          "Pengukuran cadangan karbon.",
+          "Penilaian kondisi sosial & ekonomi.",
+          "Analisis tata kelola & kelembagaan."
+        ]
+      },
+      {
+        "title": "Kajian Keanekaragaman Hayati",
+        "desc": "Kami membantu organisasi memahami kondisi ekologi suatu wilayah sekaligus mengidentifikasi risiko dan strategi pengelolaan yang tepat.",
+        "scopes": [
+          "Inventarisasi flora dan fauna.",
+          "Analisis habitat dan bentang alam.",
+          "Identifikasi spesies penting.",
+          "Analisis ancaman dan risiko ekologis.",
+          "Penyusunan strategi konservasi."
+        ]
+      },
+      {
+        "title": "Penilaian Sosial & Masyarakat",
+        "desc": "Kami meyakini bahwa masyarakat merupakan bagian penting dalam keberhasilan sebuah program keberlanjutan.",
+        "scopes": [
+          "Analisis pemangku kepentingan.",
+          "Kajian sosial-ekonomi masyarakat.",
+          "Penilaian mata pencaharian berkelanjutan.",
+          "Pemetaan kelembagaan.",
+          "Penyusunan strategi pemberdayaan."
+        ]
+      },
+      {
+        "title": "Strategi Keberlanjutan & ESG",
+        "desc": "Kami membantu organisasi mengintegrasikan prinsip lingkungan, sosial, dan tata kelola (ESG) ke dalam proses bisnis.",
+        "scopes": [
+          "Penyusunan strategi ESG.",
+          "Pengembangan indikator keberlanjutan.",
+          "Penyusunan peta jalan (roadmap).",
+          "Analisis risiko lingkungan dan sosial.",
+          "Penguatan tata kelola keberlanjutan."
+        ]
+      }
+    ]
+  },
+    "about": {
+    "eyebrow": "Konsultansi Iklim & Keberlanjutan",
+    "title_1": "Membangun",
+    "title_highlight": "Nilai Berkelanjutan",
+    "title_2": "bagi Manusia, Alam, dan Bisnis.",
+    "label": "Tentang Satubumi",
+    "intro": "Satubumi adalah perusahaan konsultansi yang berfokus pada pengembangan solusi iklim dan keberlanjutan melalui pendekatan ilmiah, kolaboratif, dan berbasis dampak.",
+    "body_1": "Kami mendampingi perusahaan, lembaga, pemerintah, dan berbagai pemangku kepentingan dalam merancang, mengembangkan, dan mengimplementasikan strategi yang mampu menciptakan keseimbangan antara pertumbuhan ekonomi, kelestarian lingkungan, dan kesejahteraan masyarakat.",
+    "quote": "Kami meyakini bahwa keberlanjutan bukan sekadar kewajiban, melainkan investasi jangka panjang yang mampu menciptakan nilai bagi bisnis, masyarakat, dan ekosistem.",
+    "body_2": "Dengan pengalaman dalam bidang kehutanan, bentang alam, pembangunan masyarakat, konservasi, serta pengembangan proyek karbon, Satubumi hadir sebagai mitra strategis untuk memastikan bahwa setiap proses bisnis berjalan secara berkelanjutan, terukur, dan memberikan dampak nyata.",
+    "vision_label": "Visi Kami",
+    "vision": "Menjadi mitra tepercaya dalam menghadirkan solusi iklim dan keberlanjutan yang mampu menciptakan dampak positif bagi masyarakat, lingkungan, dan dunia usaha.",
+    "mission_label": "Misi Kami",
+    "missions": [
+      "Mengembangkan solusi berbasis ilmu pengetahuan dan data yang kredibel.",
+      "Mendukung organisasi dalam mencapai tujuan keberlanjutan dan target iklim.",
+      "Membangun kolaborasi yang kuat antara sektor swasta, pemerintah, masyarakat, dan mitra pembangunan.",
+      "Menghasilkan dampak sosial, ekonomi, dan lingkungan yang berkelanjutan.",
+      "Mendorong praktik bisnis yang bertanggung jawab dan berorientasi pada masa depan."
+    ]
+  },
+    "contact": {
+    "eyebrow": "Dukungan & Pertanyaan",
+    "title": "Hubungi Kami",
+    "subtitle": "Punya pertanyaan tentang Rapid-FS atau butuh solusi untuk proyek karbon Anda? Tim Satubumi siap membantu.",
+    "name": "Nama Lengkap",
+    "email": "Alamat Email",
+    "company": "Perusahaan / Organisasi",
+    "message": "Pesan Anda",
+    "send": "Kirim Pesan",
+    "processing": "Mengirim...",
+    "success_title": "Pesan Berhasil Terkirim!",
+    "success_desc": "Terima kasih telah menghubungi Satubumi. Tim kami akan segera meninjau pesan Anda dan membalas secepat mungkin.",
+    "send_another": "Kirim Pesan Lain",
+    "back": "Kembali ke Beranda",
+    "info_title": "Informasi Kontak",
+    "info_desc": "Mari berdiskusi untuk menciptakan dampak keberlanjutan yang terukur dan nyata."
+  }
+}

@@ -1,0 +1,162 @@
+{
+  "home": {
+    "hero_eyebrow": "Climate & Sustainability Advisory",
+    "hero_title": "Measurable action for a",
+    "hero_highlight": "resilient future.",
+    "hero_subtitle": "Satubumi bridges science, nature, communities, and business to deliver certainty in an uncertain climate.",
+    "btn_primary": "Launch Rapid-FS",
+    "btn_secondary": "Engage Our Team",
+    "scroll_text": "Scroll to explore",
+    "bento_heading": "Why leading organizations trust our methodology.",
+    "bento_subheading": "We combine scientific rigor with field realities.",
+    "bento_1_title": "Science-Driven Precision",
+    "bento_1_desc": "Every recommendation is grounded in rigorous research, real-time spatial data, and internationally recognized ESG methodologies.",
+    "bento_2_title": "Measurable Impact",
+    "bento_2_desc": "Clear metrics on carbon and biodiversity — real, quantifiable results.",
+    "bento_3_title": "Collaborative Local Approach",
+    "bento_3_desc": "We work closely with communities, governments, and private sector partners to ensure lasting local ownership and sustainable execution."
+  },
+  "products": {
+    "eyebrow": "Product & Tool",
+    "title": "Rapid-FS Scoring",
+    "subtitle": "Upload your project area map to get an accurate feasibility score.",
+    "welcome": "Welcome back",
+    "spatial_mode": "Spatial Mode",
+    "quick_mode": "Quick Mode",
+    "location_name": "Location Name",
+    "ecosystem_type": "Ecosystem Type",
+    "upload_label": "Upload Shapefile (.zip)",
+    "upload_hint": "Drag & drop .zip file here, or click to select",
+    "upload_note": "ZIP must contain: .shp, .shx, .dbf, .prj",
+    "area_size": "Area Size (Hectares)",
+    "duration": "Duration (Years)",
+    "carbon_price": "Carbon Price ($)",
+    "run_analysis": "Run Feasibility Analysis",
+    "processing": "Processing...",
+    "score_label": "Feasibility Score",
+    "recommendations": "Recommendations",
+    "save": "Save Assessment",
+    "download_pdf": "Download PDF Report",
+    "no_data": "Results will appear here after analysis",
+    "login_required": "Login Required",
+    "login_desc": "You must log in to use Rapid-FS.",
+    "login_btn": "Login",
+    "register_btn": "Create Account"
+  },
+  "auth": {
+    "login_title": "Welcome back",
+    "login_subtitle": "Login to access Rapid-FS tools",
+    "register_title": "Create account",
+    "register_subtitle": "Register to use Rapid-FS",
+    "full_name": "Full Name",
+    "email": "Email",
+    "password": "Password",
+    "login_btn": "Login",
+    "register_btn": "Register",
+    "no_account": "Don't have an account?",
+    "have_account": "Already have an account?"
+  },
+    "services": {
+    "eyebrow": "Sustainability Pillars",
+    "title": "Our Flagship",
+    "title_highlight": "Services",
+    "subtitle": "Five core service pillars integrating technical expertise and data-driven approaches to support your climate sustainability journey.",
+    "scope_label": "Scope of Work:",
+    "items": [
+      {
+        "title": "Carbon Project Development",
+        "desc": "We accompany clients through all stages of carbon project development, from potential identification, feasibility studies, project design, documentation, implementation, to monitoring and evaluation.",
+        "scopes": [
+          "Carbon project feasibility assessment.",
+          "Climate change mitigation strategy development.",
+          "Methodology and technical documentation.",
+          "Project implementation support.",
+          "Measurement, reporting, and verification."
+        ]
+      },
+      {
+        "title": "Baseline Condition Assessment",
+        "desc": "We provide data collection and analysis services as a foundation for accurate and measurable decision-making.",
+        "scopes": [
+          "Land cover & land use analysis.",
+          "Biodiversity assessment.",
+          "Carbon stock measurement.",
+          "Social & economic condition assessment.",
+          "Governance & institutional analysis."
+        ]
+      },
+      {
+        "title": "Biodiversity Assessment",
+        "desc": "We help organizations understand the ecological conditions of an area while identifying risks and appropriate management strategies.",
+        "scopes": [
+          "Flora and fauna inventory.",
+          "Habitat and landscape analysis.",
+          "Key species identification.",
+          "Ecological threat and risk analysis.",
+          "Conservation strategy development."
+        ]
+      },
+      {
+        "title": "Social & Community Assessment",
+        "desc": "We believe communities are a critical part of the success of any sustainability program.",
+        "scopes": [
+          "Stakeholder analysis.",
+          "Community socio-economic assessment.",
+          "Sustainable livelihood assessment.",
+          "Institutional mapping.",
+          "Empowerment strategy development."
+        ]
+      },
+      {
+        "title": "Sustainability & ESG Strategy",
+        "desc": "We help organizations integrate environmental, social, and governance (ESG) principles into their business processes.",
+        "scopes": [
+          "ESG strategy development.",
+          "Sustainability indicator development.",
+          "Roadmap development.",
+          "Environmental and social risk analysis.",
+          "Strengthening sustainability governance."
+        ]
+      }
+    ]
+  },
+    "about": {
+    "eyebrow": "Climate & Sustainability Advisory",
+    "title_1": "Building",
+    "title_highlight": "Sustainable Value",
+    "title_2": "for People, Nature, and Business.",
+    "label": "About Satubumi",
+    "intro": "Satubumi is a consulting firm focused on developing climate and sustainability solutions through scientific, collaborative, and impact-driven approaches.",
+    "body_1": "We support companies, institutions, governments, and various stakeholders in designing, developing, and implementing strategies that create balance between economic growth, environmental preservation, and community well-being.",
+    "quote": "We believe that sustainability is not merely an obligation, but a long-term investment that creates value for business, society, and ecosystems.",
+    "body_2": "With experience in forestry, landscapes, community development, conservation, and carbon project development, Satubumi serves as a strategic partner to ensure every business process is sustainable, measurable, and delivers real impact.",
+    "vision_label": "Our Vision",
+    "vision": "To become a trusted partner in delivering climate and sustainability solutions that create positive impact for communities, the environment, and the business world.",
+    "mission_label": "Our Mission",
+    "missions": [
+      "Develop science-based and credible data-driven solutions.",
+      "Support organizations in achieving sustainability goals and climate targets.",
+      "Build strong collaboration between private sector, government, communities, and development partners.",
+      "Generate sustainable social, economic, and environmental impact.",
+      "Promote responsible and future-oriented business practices."
+    ]
+  },
+    "contact": {
+    "eyebrow": "Support & Inquiries",
+    "title": "Get in Touch",
+    "subtitle": "Have questions about Rapid-FS or need solutions for your carbon project? The Satubumi team is here to help.",
+    "name": "Full Name",
+    "email": "Email Address",
+    "company": "Company / Organization",
+    "message": "Your Message",
+    "send": "Send Message",
+    "processing": "Sending...",
+    "success_title": "Message Sent Successfully!",
+    "success_desc": "Thank you for reaching out to Satubumi. Our team will review your message and get back to you shortly.",
+    "send_another": "Send Another Message",
+    "back": "Back to Home",
+    "info_title": "Contact Information",
+    "info_desc": "Let's discuss creating measurable and real sustainability impacts together."
+  }
+  
+}
