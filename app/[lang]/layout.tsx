@@ -1,6 +1,10 @@
-import AppShell from "../../components/AppShell";
-import "./globals.css";
+import "./globals.css"; 
 import "leaflet/dist/leaflet.css";
+
+export const metadata = {
+  title: "Satubumi",
+  description: "Bridging science, nature, and business.",
+};
 
 export default async function RootLayout({
   children,
@@ -13,8 +17,8 @@ export default async function RootLayout({
 
   return (
     <html lang={lang} suppressHydrationWarning>
-      <body className="antialiased bg-[#fafaf9]" suppressHydrationWarning>
-        <AppShell>{children}</AppShell>
+      <body className="bg-slate-50 text-slate-900 font-sans antialiased" suppressHydrationWarning>
+        {children}
       </body>
     </html>
   );

@@ -12,9 +12,24 @@ import {
   Menu,
   X,
   ClipboardList,
+  Home,
+  Info,
+  type LucideIcon,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+
+type NavItem = {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+  exact?: boolean;
+};
+
+type NavGroup = {
+  title: string;
+  items: NavItem[];
+};
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const params = useParams();
@@ -60,32 +75,59 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     window.location.href = `/${lang}/login`;
   };
 
-  const navItems = [
+  // Grup menu: Konten halaman → Operasional → Sistem
+  const navGroups: NavGroup[] = [
     {
-      href: `/${lang}/admin`,
-      label: isId ? "Konten / Artikel" : "Content / Articles",
-      icon: FileText,
-      exact: true,
+      title: isId ? "Konten Website" : "Website Content",
+      items: [
+        {
+          href: `/${lang}/admin/home`,
+          label: isId ? "Halaman Home" : "Home Page",
+          icon: Home,
+        },
+        {
+          href: `/${lang}/admin/about`,
+          label: isId ? "Halaman About" : "About Page",
+          icon: Info,
+        },
+        {
+          href: `/${lang}/admin/articles`,
+          label: isId ? "Services & Artikel" : "Services & Articles",
+          icon: FileText,
+        },
+      ],
     },
     {
-      href: `/${lang}/admin/assessments`,
-      label: isId ? "Semua Assessment" : "All Assessments",
-      icon: ClipboardList,
-      exact: false,
+      title: isId ? "Operasional" : "Operations",
+      items: [
+        {
+          href: `/${lang}/admin/assessments`,
+          label: isId ? "Semua Assessment" : "All Assessments",
+          icon: ClipboardList,
+        },
+      ],
     },
   ];
 
   if (user?.role === "super_admin") {
-    navItems.push({
-      href: `/${lang}/admin/users`,
-      label: isId ? "Pengguna" : "Users",
-      icon: Users,
-      exact: false,
+    navGroups.push({
+      title: isId ? "Sistem" : "System",
+      items: [
+        {
+          href: `/${lang}/admin/users`,
+          label: isId ? "Manajemen Pengguna" : "User Management",
+          icon: Users,
+        },
+      ],
     });
   }
 
   const isActive = (href: string, exact?: boolean) => {
     if (exact) return pathname === href;
+    // Hindari /admin aktif untuk semua path — hanya exact untuk dashboard root
+    if (href === `/${lang}/admin`) {
+      return pathname === href || pathname === `/${lang}/admin/`;
+    }
     return pathname.startsWith(href);
   };
 
@@ -96,10 +138,39 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return name.substring(0, 2).toUpperCase();
   };
 
+  const renderNav = (onNavigate?: () => void) =>
+    navGroups.map((group) => (
+      <div key={group.title} className="mb-5">
+        <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-500/70">
+          {group.title}
+        </p>
+        <div className="space-y-0.5">
+          {group.items.map((item) => {
+            const Icon = item.icon;
+            const active = isActive(item.href, item.exact);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                onClick={onNavigate}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${
+                  active
+                    ? "bg-emerald-800 text-white"
+                    : "text-emerald-100/60 hover:bg-emerald-900 hover:text-white"
+                }`}
+              >
+                <Icon className="w-4 h-4 shrink-0" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </div>
+      </div>
+    ));
+
   return (
     <div className="min-h-screen bg-[#f4f7f5] flex">
-      
-      {/* Sidebar - Desktop */}
+      {/* Sidebar Desktop */}
       <aside className="hidden lg:flex w-64 flex-col bg-emerald-950 text-white fixed inset-y-0 left-0 z-40">
         <div className="h-16 flex items-center px-6 border-b border-emerald-900">
           <Link href={`/${lang}/admin`} className="flex items-center gap-2">
@@ -107,34 +178,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               S
             </div>
             <span className="font-extrabold tracking-tight">
-              Satubumi <span className="text-emerald-400 text-sm font-bold">Admin</span>
+              Satubumi{" "}
+              <span className="text-emerald-400 text-sm font-bold">Admin</span>
             </span>
           </Link>
         </div>
 
-        <nav className="flex-1 p-4 space-y-1">
-          <p className="px-3 mb-2 text-[11px] font-bold uppercase tracking-widest text-emerald-500/70">
-            Menu
-          </p>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            const active = isActive(item.href, item.exact);
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${
-                  active
-                    ? "bg-emerald-800 text-white"
-                    : "text-emerald-100/60 hover:bg-emerald-900 hover:text-white"
-                }`}
-              >
-                <Icon className="w-4 h-4" />
-                {item.label}
-              </Link>
-            );
-          })}
-        </nav>
+        <nav className="flex-1 p-4 overflow-y-auto">{renderNav()}</nav>
 
         <div className="p-4 border-t border-emerald-900 space-y-1">
           <Link
@@ -145,6 +195,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {isId ? "Lihat Website" : "View Website"}
           </Link>
           <button
+            type="button"
             onClick={handleLogout}
             className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-rose-300 hover:bg-rose-950/40 transition-colors"
           >
@@ -154,35 +205,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       </aside>
 
-      {/* Mobile sidebar overlay */}
+      {/* Mobile sidebar */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
-          <div className="fixed inset-0 bg-black/40" onClick={() => setSidebarOpen(false)} />
+          <div
+            className="fixed inset-0 bg-black/40"
+            onClick={() => setSidebarOpen(false)}
+          />
           <aside className="relative w-72 bg-emerald-950 text-white flex flex-col z-50">
             <div className="h-16 flex items-center justify-between px-6 border-b border-emerald-900">
               <span className="font-extrabold">Satubumi Admin</span>
-              <button onClick={() => setSidebarOpen(false)}>
+              <button type="button" onClick={() => setSidebarOpen(false)}>
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <nav className="flex-1 p-4 space-y-1">
-              {navItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setSidebarOpen(false)}
-                    className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-emerald-100/70 hover:bg-emerald-900"
-                  >
-                    <Icon className="w-4 h-4" />
-                    {item.label}
-                  </Link>
-                );
-              })}
+            <nav className="flex-1 p-4 overflow-y-auto">
+              {renderNav(() => setSidebarOpen(false))}
             </nav>
             <div className="p-4 border-t border-emerald-900">
               <button
+                type="button"
                 onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-rose-300"
               >
@@ -194,13 +236,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       )}
 
-      {/* Main area */}
+      {/* Main */}
       <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
-        
-        {/* Top header */}
         <header className="h-16 bg-white border-b border-emerald-100 flex items-center justify-between px-4 md:px-8 sticky top-0 z-30">
           <div className="flex items-center gap-3">
             <button
+              type="button"
               className="lg:hidden p-2 rounded-lg hover:bg-emerald-50 text-emerald-900"
               onClick={() => setSidebarOpen(true)}
             >
@@ -229,10 +270,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           )}
         </header>
 
-        {/* Page content */}
-        <div className="flex-1 p-4 md:p-8">
-          {children}
-        </div>
+        <div className="flex-1 p-4 md:p-8">{children}</div>
       </div>
     </div>
   );

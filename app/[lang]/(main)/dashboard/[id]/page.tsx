@@ -6,7 +6,7 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { ArrowLeft, Download, Trash2 } from "lucide-react";
 
-const MapPreview = dynamic(() => import("../../../../components/MapPreview"), {
+const MapPreview = dynamic(() => import("../../../../../components/MapPreview"), {
   ssr: false,
   loading: () => (
     <div className="w-full h-72 bg-emerald-50 rounded-2xl animate-pulse border border-emerald-100" />
