@@ -14,6 +14,7 @@ import {
   ClipboardList,
   Home,
   Info,
+  Briefcase,
   type LucideIcon,
 } from "lucide-react";
 
@@ -91,8 +92,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           icon: Info,
         },
         {
+          href: `/${lang}/admin/services`,
+          label: isId ? "Halaman Services" : "Services Page",
+          icon: Briefcase,
+        },
+        {
           href: `/${lang}/admin/articles`,
-          label: isId ? "Services & Artikel" : "Services & Articles",
+          label: isId ? "Artikel" : "Articles",
           icon: FileText,
         },
       ],
@@ -124,7 +130,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const isActive = (href: string, exact?: boolean) => {
     if (exact) return pathname === href;
-    // Hindari /admin aktif untuk semua path — hanya exact untuk dashboard root
     if (href === `/${lang}/admin`) {
       return pathname === href || pathname === `/${lang}/admin/`;
     }
@@ -140,11 +145,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const renderNav = (onNavigate?: () => void) =>
     navGroups.map((group) => (
-      <div key={group.title} className="mb-5">
-        <p className="px-3 mb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-emerald-500/70">
+      <div key={group.title} className="mb-8">
+        <p className="px-4 mb-3 text-[11px] font-bold uppercase tracking-wider text-emerald-100/40">
           {group.title}
         </p>
-        <div className="space-y-0.5">
+        <div className="space-y-1">
           {group.items.map((item) => {
             const Icon = item.icon;
             const active = isActive(item.href, item.exact);
@@ -153,13 +158,18 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 key={item.href}
                 href={item.href}
                 onClick={onNavigate}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-colors ${
+                className={`relative flex items-center gap-3 px-4 py-3 rounded-xl text-[14px] font-medium transition-colors ${
                   active
-                    ? "bg-emerald-800 text-white"
-                    : "text-emerald-100/60 hover:bg-emerald-900 hover:text-white"
+                    ? "bg-emerald-900/60 text-white"
+                    : "text-emerald-100/70 hover:bg-emerald-900/40 hover:text-white"
                 }`}
               >
-                <Icon className="w-4 h-4 shrink-0" />
+                {/* Pita Indikator Aktif (Solid, bukan glowing) */}
+                {active && (
+                  <span className="absolute left-0 top-2 bottom-2 w-1 bg-emerald-400 rounded-r-md" />
+                )}
+                
+                <Icon className={`w-4 h-4 shrink-0 ${active ? "text-emerald-400" : "text-emerald-100/50"}`} />
                 {item.label}
               </Link>
             );
@@ -169,66 +179,81 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     ));
 
   return (
-    <div className="min-h-screen bg-[#f4f7f5] flex">
-      {/* Sidebar Desktop */}
-      <aside className="hidden lg:flex w-64 flex-col bg-emerald-950 text-white fixed inset-y-0 left-0 z-40">
-        <div className="h-16 flex items-center px-6 border-b border-emerald-900">
-          <Link href={`/${lang}/admin`} className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-emerald-800 flex items-center justify-center font-bold text-emerald-300">
+    <div className="min-h-screen bg-[#F4F7F5] flex font-sans text-slate-800">
+      
+      {/* SIDEBAR DESKTOP */}
+      <aside className="hidden lg:flex w-72 flex-col bg-[#042F24] text-white fixed inset-y-0 left-0 z-40 border-r border-emerald-900/30">
+        {/* Logo Area */}
+        <div className="h-[76px] flex items-center px-8 border-b border-emerald-900/30">
+          <Link href={`/${lang}/admin`} className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-full bg-emerald-800/80 border border-emerald-700 flex items-center justify-center font-bold text-emerald-100">
               S
             </div>
-            <span className="font-extrabold tracking-tight">
-              Satubumi{" "}
-              <span className="text-emerald-400 text-sm font-bold">Admin</span>
+            <span className="font-bold tracking-tight text-lg text-emerald-50">
+              Satubumi <span className="text-emerald-400/80 font-normal">Admin</span>
             </span>
           </Link>
         </div>
 
-        <nav className="flex-1 p-4 overflow-y-auto">{renderNav()}</nav>
+        {/* Navigation - Scrollbar dihilangkan secara visual */}
+        <nav className="flex-1 px-4 py-6 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
+          {renderNav()}
+        </nav>
 
-        <div className="p-4 border-t border-emerald-900 space-y-1">
+        {/* Bottom Actions */}
+        <div className="p-4 border-t border-emerald-900/30 space-y-2 bg-[#03261D]">
           <Link
             href={`/${lang}`}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-emerald-100/60 hover:bg-emerald-900 hover:text-white transition-colors"
+            className="flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13.5px] font-medium text-emerald-100/60 hover:bg-emerald-900/40 hover:text-emerald-50 transition-colors"
           >
-            <ExternalLink className="w-4 h-4" />
+            <ExternalLink className="w-4 h-4 text-emerald-100/40" />
             {isId ? "Lihat Website" : "View Website"}
           </Link>
           <button
             type="button"
             onClick={handleLogout}
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-rose-300 hover:bg-rose-950/40 transition-colors"
+            className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13.5px] font-medium text-rose-300/80 hover:bg-rose-950/40 hover:text-rose-300 transition-colors"
           >
-            <LogOut className="w-4 h-4" />
+            <LogOut className="w-4 h-4 text-rose-400/60" />
             Log Out
           </button>
         </div>
       </aside>
 
-      {/* Mobile sidebar */}
+      {/* SIDEBAR MOBILE */}
       {sidebarOpen && (
         <div className="lg:hidden fixed inset-0 z-50 flex">
           <div
-            className="fixed inset-0 bg-black/40"
+            className="fixed inset-0 bg-emerald-950/60 transition-opacity"
             onClick={() => setSidebarOpen(false)}
           />
-          <aside className="relative w-72 bg-emerald-950 text-white flex flex-col z-50">
-            <div className="h-16 flex items-center justify-between px-6 border-b border-emerald-900">
-              <span className="font-extrabold">Satubumi Admin</span>
-              <button type="button" onClick={() => setSidebarOpen(false)}>
+          <aside className="relative w-[280px] max-w-[80%] bg-[#042F24] text-white flex flex-col z-50 shadow-2xl animate-in slide-in-from-left duration-300">
+            <div className="h-[76px] flex items-center justify-between px-6 border-b border-emerald-900/30">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 rounded-full bg-emerald-800/80 border border-emerald-700 flex items-center justify-center font-bold text-emerald-100">
+                  S
+                </div>
+                <span className="font-bold text-emerald-50">Admin</span>
+              </div>
+              <button 
+                type="button" 
+                onClick={() => setSidebarOpen(false)}
+                className="p-2 rounded-lg hover:bg-emerald-900/50 text-emerald-100/60 transition-colors"
+              >
                 <X className="w-5 h-5" />
               </button>
             </div>
-            <nav className="flex-1 p-4 overflow-y-auto">
+            {/* Navigation Mobile - Scrollbar dihilangkan secara visual */}
+            <nav className="flex-1 px-4 py-6 overflow-y-auto [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]">
               {renderNav(() => setSidebarOpen(false))}
             </nav>
-            <div className="p-4 border-t border-emerald-900">
+            <div className="p-4 border-t border-emerald-900/30 bg-[#03261D]">
               <button
                 type="button"
                 onClick={handleLogout}
-                className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold text-rose-300"
+                className="w-full flex items-center gap-3 px-4 py-2.5 rounded-xl text-[13.5px] font-medium text-rose-300/80 hover:bg-rose-950/40 hover:text-rose-300"
               >
-                <LogOut className="w-4 h-4" />
+                <LogOut className="w-4 h-4 text-rose-400/60" />
                 Log Out
               </button>
             </div>
@@ -236,41 +261,49 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       )}
 
-      {/* Main */}
-      <div className="flex-1 lg:ml-64 flex flex-col min-h-screen">
-        <header className="h-16 bg-white border-b border-emerald-100 flex items-center justify-between px-4 md:px-8 sticky top-0 z-30">
-          <div className="flex items-center gap-3">
+      {/* MAIN CONTENT AREA */}
+      <div className="flex-1 lg:ml-72 flex flex-col min-h-screen relative">
+        
+        {/* HEADER SOLID & BERSIH */}
+        <header className="h-[76px] bg-white border-b border-slate-200 flex items-center justify-between px-6 md:px-10 sticky top-0 z-30 shadow-sm">
+          <div className="flex items-center gap-4">
             <button
               type="button"
-              className="lg:hidden p-2 rounded-lg hover:bg-emerald-50 text-emerald-900"
+              className="lg:hidden p-2 -ml-2 rounded-xl hover:bg-slate-100 text-slate-600 transition-colors"
               onClick={() => setSidebarOpen(true)}
             >
               <Menu className="w-5 h-5" />
             </button>
-            <div className="flex items-center gap-2 text-sm font-bold text-emerald-900/50">
-              <LayoutDashboard className="w-4 h-4" />
+            
+            {/* Indikator Halaman (Simple, bukan pil menyala) */}
+            <div className="hidden md:flex items-center gap-2 text-[14px] font-medium text-slate-500">
+              <LayoutDashboard className="w-4 h-4 text-slate-400" />
               <span>{isId ? "Panel Admin" : "Admin Panel"}</span>
             </div>
           </div>
 
           {user && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-4">
               <div className="text-right hidden sm:block">
-                <p className="text-sm font-extrabold text-emerald-950 leading-none">
+                <p className="text-[14px] font-bold text-slate-800 leading-tight">
                   {user.full_name}
                 </p>
-                <p className="text-[11px] font-bold text-emerald-700/50 uppercase tracking-wider mt-1">
-                  {user.role}
+                <p className="text-[11px] font-medium text-slate-500 uppercase tracking-widest mt-0.5">
+                  {user.role.replace('_', ' ')}
                 </p>
               </div>
-              <div className="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 flex items-center justify-center font-extrabold text-sm">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-sm">
                 {getInitials(user.full_name)}
               </div>
             </div>
           )}
         </header>
 
-        <div className="flex-1 p-4 md:p-8">{children}</div>
+        {/* CONTENT */}
+        <div className="flex-1 p-6 md:p-10 max-w-[1400px] w-full">
+          {children}
+        </div>
+
       </div>
     </div>
   );

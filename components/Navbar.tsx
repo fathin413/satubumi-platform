@@ -122,7 +122,6 @@ export default function Navbar() {
     return name.substring(0, 2).toUpperCase();
   };
 
-  // Satu kondisi translate saja — hindari konflik Tailwind
   const navVisibilityClass = !isMounted
     ? "-translate-y-12 opacity-0"
     : showNavbar
@@ -134,8 +133,8 @@ export default function Navbar() {
       className={`fixed top-6 inset-x-0 z-50 flex justify-center items-start pointer-events-none gap-3 lg:gap-4 px-4 w-full transition-all duration-500 ease-out ${navVisibilityClass}`}
     >
       {/* NAVBAR UTAMA */}
-      <header className="bg-white/95 backdrop-blur-md border border-slate-200/60 rounded-full w-full lg:w-auto h-[72px] flex items-center justify-between px-6 lg:px-8 shadow-[0_8px_30px_rgb(0,0,0,0.06)] pointer-events-auto transition-all duration-300">
-        <Link href={`/${currentLang}`} className="flex items-center group lg:mr-8">
+      <header className="bg-white/95 backdrop-blur-md border border-emerald-100/80 rounded-full w-full lg:w-auto h-[72px] flex items-center justify-between px-6 lg:px-8 shadow-[0_10px_40px_-10px_rgba(4,43,34,0.15)] pointer-events-auto transition-all duration-300">
+        <Link href={`/${currentLang}`} className="flex items-center group lg:mr-4">
           <Image
             src="/logo.png"
             alt="Satubumi Logo"
@@ -147,36 +146,36 @@ export default function Navbar() {
           />
         </Link>
 
-        <nav className="hidden lg:flex items-center gap-8">
+        <nav className="hidden lg:flex items-center gap-4">
           {navLinks.map((link) => (
             <Link
               key={link.href}
               href={`/${currentLang}${link.href}`}
-              className={`relative text-[15px] font-bold transition-colors duration-300 group ${
-                isActive(link.href) ? "text-emerald-800" : "text-slate-500 hover:text-emerald-700"
-              }`}
+              className="relative px-2 py-2 text-[15px] font-bold text-emerald-900 group"
             >
               {link.label}
+              
+              {/* PERUBAHAN: Posisi dari -bottom-1 dinaikkan menjadi bottom-0.5 */}
               <span
-                className={`absolute -bottom-1.5 left-1/2 -translate-x-1/2 h-[2.5px] bg-emerald-600 rounded-full transition-all duration-300 ${
+                className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 h-[3px] bg-emerald-600 rounded-full transition-all duration-300 ${
                   isActive(link.href)
                     ? "w-full opacity-100"
-                    : "w-0 opacity-0 group-hover:w-full group-hover:opacity-40"
+                    : "w-0 opacity-0 group-hover:w-full group-hover:opacity-60"
                 }`}
               />
             </Link>
           ))}
 
-          <div className="w-[1px] h-6 bg-slate-200 mx-2" />
+          <div className="w-[1px] h-6 bg-emerald-100 mx-2" />
 
-          <div className="flex items-center bg-slate-100/80 p-1 rounded-full border border-slate-200/60">
+          <div className="flex items-center bg-white p-1 rounded-full border border-emerald-100/80 shadow-sm">
             <button
               type="button"
               onClick={() => handleLanguageSwitch("en")}
-              className={`px-4 py-1.5 text-[12px] font-bold rounded-full transition-all ${
+              className={`px-3 py-1.5 text-[11px] font-extrabold rounded-full transition-all ${
                 currentLang === "en"
                   ? "bg-emerald-700 text-white shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
+                  : "text-emerald-800 hover:bg-emerald-50"
               }`}
             >
               EN
@@ -184,10 +183,10 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => handleLanguageSwitch("id")}
-              className={`px-4 py-1.5 text-[12px] font-bold rounded-full transition-all ${
+              className={`px-3 py-1.5 text-[11px] font-extrabold rounded-full transition-all ${
                 currentLang === "id"
                   ? "bg-emerald-700 text-white shadow-sm"
-                  : "text-slate-500 hover:text-slate-800"
+                  : "text-emerald-800 hover:bg-emerald-50"
               }`}
             >
               ID
@@ -197,7 +196,7 @@ export default function Navbar() {
 
         <button
           type="button"
-          className="lg:hidden p-2 text-slate-800"
+          className="lg:hidden p-2 text-emerald-900 transition-colors hover:bg-emerald-50 rounded-full"
           onClick={() => setOpen(!open)}
         >
           {open ? <X size={24} /> : <Menu size={24} />}
@@ -205,37 +204,37 @@ export default function Navbar() {
       </header>
 
       {/* USER PROFILE */}
-      <div className="hidden lg:flex bg-white/95 backdrop-blur-md border border-slate-200/60 rounded-full h-[72px] items-center px-2 shadow-[0_8px_30px_rgb(0,0,0,0.06)] pointer-events-auto relative">
+      <div className="hidden lg:flex bg-white/95 backdrop-blur-md border border-emerald-100/80 rounded-full h-[72px] items-center px-2 shadow-[0_10px_40px_-10px_rgba(4,43,34,0.15)] pointer-events-auto relative">
         {isLoggedIn === null ? (
-          <div className="w-32 h-10 bg-slate-100 animate-pulse rounded-full m-2" />
+          <div className="w-32 h-10 bg-emerald-50 animate-pulse rounded-full m-2" />
         ) : isLoggedIn ? (
           <div className="relative" ref={dropdownRef}>
             <button
               type="button"
               onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center gap-3 pl-5 pr-2 py-2 rounded-full border border-transparent hover:bg-slate-50 transition-all duration-300 group"
+              className="flex items-center gap-3 pl-5 pr-2 py-2 rounded-full border border-transparent hover:bg-emerald-50/50 transition-all duration-300 group"
             >
               <div className="flex flex-col items-end">
-                <span className="text-[11px] font-bold text-emerald-900/40 uppercase tracking-wider mb-0.5 leading-none">
+                <span className="text-[11px] font-bold text-emerald-800/60 uppercase tracking-wider mb-0.5 leading-none">
                   Workspace
                 </span>
-                <span className="text-[14px] font-extrabold text-emerald-950 leading-none">
+                <span className="text-[14px] font-bold text-emerald-900 leading-none">
                   Hi, {user?.full_name?.split(" ")[0] || "User"}
                 </span>
               </div>
 
-              <div className="w-10 h-10 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 flex items-center justify-center font-extrabold text-sm group-hover:bg-emerald-600 group-hover:text-white transition-colors">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-800 flex items-center justify-center font-extrabold text-sm group-hover:bg-emerald-600 group-hover:text-white transition-colors shadow-sm">
                 {getInitials(user?.full_name)}
               </div>
             </button>
 
             {userMenuOpen && (
-              <div className="absolute top-[120%] right-0 w-64 bg-white border border-slate-200/60 rounded-[1.5rem] p-3 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] animate-in fade-in slide-in-from-top-4 duration-300">
-                <div className="px-3 py-3 border-b border-slate-100 mb-2">
-                  <p className="text-[11px] font-bold text-slate-400 uppercase tracking-widest mb-1">
+              <div className="absolute top-[120%] right-0 w-64 bg-white border border-emerald-100/80 rounded-[1.5rem] p-3 shadow-[0_30px_60px_-15px_rgba(4,43,34,0.15)] animate-in fade-in slide-in-from-top-4 duration-300">
+                <div className="px-3 py-3 border-b border-emerald-50 mb-2">
+                  <p className="text-[11px] font-bold text-emerald-800/60 uppercase tracking-widest mb-1">
                     Signed in as
                   </p>
-                  <p className="text-sm font-bold text-emerald-950 truncate">
+                  <p className="text-sm font-bold text-emerald-900 truncate">
                     {user?.email || "user@satubumi.org"}
                   </p>
                 </div>
@@ -243,9 +242,9 @@ export default function Navbar() {
                 <Link
                   href={`/${currentLang}/dashboard`}
                   onClick={() => setUserMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 text-[14px] font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl transition-colors"
+                  className="flex items-center gap-3 px-4 py-3 text-[14px] font-bold text-emerald-900 hover:bg-emerald-50 rounded-xl transition-colors"
                 >
-                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                     <path
                       strokeLinecap="round"
                       strokeLinejoin="round"
@@ -260,9 +259,9 @@ export default function Navbar() {
                   <Link
                     href={`/${currentLang}/admin`}
                     onClick={() => setUserMenuOpen(false)}
-                    className="flex items-center gap-3 px-4 py-3 text-[14px] font-bold text-slate-700 hover:bg-emerald-50 hover:text-emerald-700 rounded-xl transition-colors"
+                    className="flex items-center gap-3 px-4 py-3 text-[14px] font-bold text-emerald-900 hover:bg-emerald-50 rounded-xl transition-colors"
                   >
-                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                       <path
                         strokeLinecap="round"
                         strokeLinejoin="round"
@@ -301,7 +300,7 @@ export default function Navbar() {
         ) : (
           <Link
             href={`/${currentLang}/login`}
-            className="px-7 py-2.5 m-2 text-[14px] font-bold bg-emerald-700 text-white rounded-full hover:bg-emerald-800 transition-all duration-300 shadow-sm hover:shadow-md"
+            className="px-7 py-2.5 m-2 text-[14px] font-extrabold bg-emerald-700 text-white rounded-full hover:bg-emerald-600 transition-all duration-300 shadow-sm hover:shadow-md hover:shadow-emerald-600/20"
           >
             Sign In
           </Link>
@@ -310,47 +309,47 @@ export default function Navbar() {
 
       {/* MOBILE MENU */}
       {open && showNavbar && (
-        <div className="absolute top-[85px] inset-x-4 bg-white/95 backdrop-blur-xl border border-slate-200/60 rounded-3xl p-5 flex flex-col gap-3 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.1)] pointer-events-auto lg:hidden animate-in slide-in-from-top-4 duration-300">
+        <div className="absolute top-[85px] inset-x-4 bg-white/95 backdrop-blur-xl border border-emerald-100/80 rounded-3xl p-5 flex flex-col gap-3 shadow-[0_30px_60px_-15px_rgba(4,43,34,0.15)] pointer-events-auto lg:hidden animate-in slide-in-from-top-4 duration-300">
           <div className="flex flex-col gap-2">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={`/${currentLang}${link.href}`}
                 onClick={() => setOpen(false)}
-                className={`flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold transition-all ${
+                className={`flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold text-emerald-900 transition-all ${
                   isActive(link.href)
-                    ? "bg-emerald-50 text-emerald-800 border border-emerald-100"
-                    : "text-slate-700 hover:bg-slate-50 border border-transparent"
+                    ? "bg-emerald-50 border border-emerald-100"
+                    : "hover:bg-emerald-50 border border-transparent"
                 }`}
               >
                 {link.label}
                 {isActive(link.href) && (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" />
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(5,150,105,0.5)]" />
                 )}
               </Link>
             ))}
           </div>
 
-          <div className="h-px w-full bg-slate-100 my-2" />
+          <div className="h-px w-full bg-emerald-50 my-2" />
 
           <div className="flex flex-col gap-3">
             {isLoggedIn ? (
               <>
                 <div className="flex items-center gap-4 px-4 py-3 bg-emerald-50/50 rounded-2xl border border-emerald-100">
-                  <div className="w-12 h-12 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 flex items-center justify-center font-extrabold text-lg">
+                  <div className="w-12 h-12 rounded-full bg-emerald-100 border border-emerald-200 text-emerald-800 flex items-center justify-center font-extrabold text-lg shadow-sm">
                     {getInitials(user?.full_name)}
                   </div>
                   <div>
-                    <p className="text-[11px] text-emerald-900/50 font-bold uppercase tracking-wider mb-0.5">
+                    <p className="text-[11px] text-emerald-800/60 font-bold uppercase tracking-wider mb-0.5">
                       Signed In
                     </p>
-                    <p className="text-[15px] font-extrabold text-emerald-950">{user?.full_name}</p>
+                    <p className="text-[15px] font-bold text-emerald-900">{user?.full_name}</p>
                   </div>
                 </div>
                 <Link
                   href={`/${currentLang}/dashboard`}
                   onClick={() => setOpen(false)}
-                  className="text-center text-white font-bold px-4 py-4 bg-emerald-600 rounded-2xl hover:bg-emerald-700 shadow-md shadow-emerald-600/20"
+                  className="text-center text-white font-extrabold px-4 py-4 bg-emerald-600 rounded-2xl hover:bg-emerald-700 shadow-md shadow-emerald-600/20 transition-all"
                 >
                   {currentLang === "id" ? "Daftar Assessment" : "My Assessments"}
                 </Link>
@@ -358,7 +357,7 @@ export default function Navbar() {
                   <Link
                     href={`/${currentLang}/admin`}
                     onClick={() => setOpen(false)}
-                    className="text-center text-emerald-800 font-bold px-4 py-4 bg-emerald-50 border border-emerald-100 rounded-2xl hover:bg-emerald-100"
+                    className="text-center text-emerald-900 font-extrabold px-4 py-4 bg-emerald-50 border border-emerald-100 rounded-2xl hover:bg-emerald-100 transition-colors shadow-sm"
                   >
                     Admin Panel
                   </Link>
@@ -366,7 +365,7 @@ export default function Navbar() {
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="text-center text-rose-600 font-bold px-4 py-4 bg-rose-50 rounded-2xl hover:bg-rose-100"
+                  className="text-center text-rose-600 font-extrabold px-4 py-4 bg-rose-50 rounded-2xl hover:bg-rose-100 transition-colors shadow-sm"
                 >
                   Log Out
                 </button>
@@ -374,7 +373,7 @@ export default function Navbar() {
             ) : (
               <Link
                 href={`/${currentLang}/login`}
-                className="text-center text-white font-bold px-4 py-4 bg-emerald-700 rounded-2xl hover:bg-emerald-800 transition-colors shadow-md"
+                className="text-center text-white font-extrabold px-4 py-4 bg-emerald-700 rounded-2xl hover:bg-emerald-600 transition-all shadow-md shadow-emerald-600/20"
               >
                 Sign In
               </Link>
