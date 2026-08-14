@@ -18,6 +18,8 @@ import {
   LockKeyhole,
   Info,
   Clock,
+  X,
+  Trash2,
 } from "lucide-react";
 import ScrollReveal from "../../../../components/ScrollReveal";
 import en from "../../../../dictionaries/en.json";
@@ -97,6 +99,7 @@ export default function ProductsPage() {
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const resultsRef = useRef<HTMLDivElement>(null);
+  const abortRef = useRef<AbortController | null>(null);
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -117,6 +120,7 @@ export default function ProductsPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [results, setResults] = useState<any>(null);
   const [savedId, setSavedId] = useState<string | null>(null);
+  const [showSaveSuccess, setShowSaveSuccess] = useState(false);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -151,6 +155,12 @@ export default function ProductsPage() {
     return () => clearTimeout(timer);
   }, [results]);
 
+  const clearSelectedFile = () => {
+    setSelectedFile(null);
+    setError(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
+
   const handleFileSelect = (file: File) => {
     if (!file.name.toLowerCase().endsWith(".zip")) {
       setError(
@@ -171,8 +181,17 @@ export default function ProductsPage() {
     if (file) handleFileSelect(file);
   };
 
+  const handleCancelCalculate = () => {
+    abortRef.current?.abort();
+  };
+
   const handleCalculate = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    abortRef.current?.abort();
+    const controller = new AbortController();
+    abortRef.current = controller;
+
     setIsCalculating(true);
     setError(null);
     setSuccessMsg(null);
@@ -197,6 +216,7 @@ export default function ProductsPage() {
         response = await fetch(`${API_URL}/rapid-fs/upload-shapefile`, {
           method: "POST",
           body: formData,
+          signal: controller.signal,
         });
       } else {
         response = await fetch(`${API_URL}/rapid-fs/calculate`, {
@@ -209,6 +229,7 @@ export default function ProductsPage() {
             project_duration_years: parseInt(duration) || 30,
             carbon_price_usd: parseFloat(carbonPrice) || 10,
           }),
+          signal: controller.signal,
         });
       }
 
@@ -227,11 +248,46 @@ export default function ProductsPage() {
         throw new Error(humanizeError(message, isId, mode));
       }
 
-      setResults(await response.json());
+      const calculatedData = await response.json();
+      setResults(calculatedData);
+
+      // FITUR AUTO-SAVE (BACKGROUND)
+      try {
+        const token = localStorage.getItem("access_token");
+        if (token) {
+          const payload = {
+            rapid_fs_result: calculatedData,
+            submitter_name: user?.full_name || undefined,
+            submitter_email: user?.email || undefined,
+            submitter_phone: user?.phone_number || user?.phone || undefined,
+            is_draft: true,
+          };
+          const autoSaveRes = await fetch(`${API_URL}/assessments`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          });
+          if (autoSaveRes.ok) {
+            const savedData = await autoSaveRes.json();
+            setSavedId(savedData.id || savedData._id || null);
+          }
+        }
+      } catch (autoErr) {
+        console.error("Auto-save background process failed", autoErr);
+      }
+
     } catch (err: any) {
-      setError(humanizeError(err.message || "Error", isId, mode));
+      if (err?.name === "AbortError") {
+        setError(isId ? "Analisis dibatalkan oleh pengguna." : "Analysis cancelled by user.");
+      } else {
+        setError(humanizeError(err.message || "Error", isId, mode));
+      }
     } finally {
       setIsCalculating(false);
+      abortRef.current = null;
     }
   };
 
@@ -242,28 +298,81 @@ export default function ProductsPage() {
     setSuccessMsg(null);
     try {
       const token = localStorage.getItem("access_token");
-      const response = await fetch(`${API_URL}/assessments`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
-        body: JSON.stringify(results),
-      });
-      if (!response.ok) {
+      if (!token) {
         throw new Error(
           isId
-            ? "Hasil belum berhasil disimpan. Coba lagi beberapa saat."
-            : "Could not save the results. Please try again shortly."
+            ? "Sesi login sudah berakhir. Silakan masuk lagi."
+            : "Your session has expired. Please sign in again."
         );
       }
+
+      const payload = {
+        rapid_fs_result: results,
+        submitter_name: user?.full_name || undefined,
+        submitter_email: user?.email || undefined,
+        submitter_phone: user?.phone_number || user?.phone || undefined,
+        is_draft: false,
+      };
+
+      let response;
+
+      if (savedId) {
+        response = await fetch(`${API_URL}/assessments/${savedId}`, {
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ is_draft: false }),
+        });
+
+        if (!response.ok) {
+          response = await fetch(`${API_URL}/assessments`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify(payload),
+          });
+        }
+      } else {
+        response = await fetch(`${API_URL}/assessments`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify(payload),
+        });
+      }
+
+      if (!response.ok) {
+        const errData = await response.json().catch(() => ({}));
+        let message = isId
+          ? "Hasil belum berhasil disimpan. Coba lagi beberapa saat."
+          : "Could not save the results. Please try again shortly.";
+        if (typeof errData.detail === "string") message = errData.detail;
+        else if (Array.isArray(errData.detail)) {
+          message = errData.detail
+            .map((e: any) => {
+              const loc = Array.isArray(e.loc) ? e.loc.join(".") : "";
+              return e.msg ? (loc ? `${loc}: ${e.msg}` : e.msg) : "";
+            })
+            .filter(Boolean)
+            .join(" | ");
+        }
+        throw new Error(message);
+      }
+
       const data = await response.json();
-      setSavedId(data.id || data._id || null);
+      if (!savedId) setSavedId(data.id || data._id || null);
       setSuccessMsg(
         isId
           ? "Hasil analisis berhasil disimpan ke akun Anda."
           : "Analysis results were saved to your account."
       );
+      setShowSaveSuccess(true);
     } catch (err: any) {
       setError(humanizeError(err.message || "Error", isId, mode));
     } finally {
@@ -305,7 +414,10 @@ export default function ProductsPage() {
   };
 
   const formatNumber = (n: number) =>
-    new Intl.NumberFormat(isId ? "id-ID" : "en-US", { maximumFractionDigits: 0 }).format(n || 0);
+    new Intl.NumberFormat(isId ? "id-ID" : "en-US", {
+      maximumFractionDigits: 0,
+    }).format(n || 0);
+
   const formatCurrency = (n: number) =>
     new Intl.NumberFormat(isId ? "id-ID" : "en-US", {
       style: "currency",
@@ -360,24 +472,28 @@ export default function ProductsPage() {
       <main className="min-h-screen bg-[#F1F6F4] flex flex-col items-center justify-center pt-32 pb-24 px-4 font-sans relative overflow-hidden">
         <div className="absolute top-[-10%] right-[-5%] w-[500px] h-[500px] bg-emerald-300/20 rounded-full blur-[120px] pointer-events-none" />
         <div className="absolute bottom-[-10%] left-[-5%] w-[500px] h-[500px] bg-cyan-300/20 rounded-full blur-[120px] pointer-events-none" />
-
         <div className="max-w-[500px] w-full bg-white/70 backdrop-blur-3xl rounded-[3rem] border border-white p-10 md:p-14 text-center shadow-[0_20px_60px_-15px_rgba(4,43,34,0.1)] relative z-10">
           <div className="w-20 h-20 bg-emerald-50 rounded-[1.8rem] flex items-center justify-center mx-auto mb-8 border border-emerald-100 shadow-inner">
             <LockKeyhole className="w-8 h-8 text-emerald-600" />
           </div>
-          <h1 className="text-3xl font-extrabold text-emerald-950 mb-4 tracking-tight">{t.login_required}</h1>
+          <h1 className="text-3xl font-extrabold text-emerald-950 mb-4 tracking-tight">
+            {t.login_required}
+          </h1>
           <p className="text-emerald-900/60 mb-10 font-medium leading-relaxed">
             {isId
               ? "Sistem Rapid-FS membutuhkan autentikasi untuk memproses data spasial dan kalkulasi karbon secara akurat."
               : "Rapid-FS requires authentication to process spatial data and carbon calculations accurately."}
           </p>
           <div className="flex flex-col gap-4">
-            <Link href={`/${lang}/login`} className="w-full py-4 bg-emerald-700 text-white font-bold rounded-2xl hover:bg-emerald-600 transition-colors shadow-sm">
+            <Link
+              href={`/${lang}/login`}
+              className="w-full py-4 bg-emerald-700 text-white font-bold rounded-2xl hover:bg-emerald-600 transition-colors shadow-sm active:scale-95"
+            >
               {t.login_btn}
             </Link>
             <Link
               href={`/${lang}/register`}
-              className="w-full py-4 border border-emerald-100 bg-emerald-50/50 text-emerald-800 font-bold rounded-2xl hover:bg-emerald-50 transition-colors"
+              className="w-full py-4 border border-emerald-100 bg-emerald-50/50 text-emerald-800 font-bold rounded-2xl hover:bg-emerald-50 transition-colors active:scale-95"
             >
               {t.register_btn}
             </Link>
@@ -389,16 +505,16 @@ export default function ProductsPage() {
 
   return (
     <main className="bg-[#F1F6F4] min-h-screen pt-32 pb-32 relative overflow-hidden font-sans">
-      
-      {/* AMBIENT GLOW BACKGROUND */}
       <div className="absolute top-0 left-0 w-full h-[600px] bg-gradient-to-b from-emerald-50/60 to-transparent pointer-events-none z-0" />
       <div className="absolute top-[10%] right-[-5%] w-[600px] h-[600px] bg-emerald-300/15 rounded-full blur-[150px] pointer-events-none z-0" />
       <div className="absolute bottom-[20%] left-[-5%] w-[500px] h-[500px] bg-cyan-300/15 rounded-full blur-[150px] pointer-events-none z-0" />
 
-      {/* Loading Overlay */}
+      {/* ========================================= */}
+      {/* MODAL 1: LOADING & CANCEL BUTTON (Spring Bounce) */}
+      {/* ========================================= */}
       {isCalculating && (
-        <div className="fixed inset-0 z-[100] bg-[#0a1118]/45 backdrop-blur-sm flex items-center justify-center p-6">
-          <div className="bg-white rounded-[2.5rem] border border-emerald-100 shadow-2xl max-w-md w-full p-10 text-center animate-in zoom-in-95 duration-300">
+        <div className="fixed inset-0 z-[100] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] border border-emerald-100 shadow-2xl max-w-md w-full p-10 text-center relative overflow-hidden animate-in zoom-in-[0.5] fade-in duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
             <div className="w-16 h-16 mx-auto mb-6 relative flex items-center justify-center">
               <div className="absolute inset-0 border-4 border-emerald-100 rounded-full" />
               <div className="absolute inset-0 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
@@ -423,9 +539,83 @@ export default function ProductsPage() {
                   : `File ~${fileSizeMb.toFixed(1)} MB — please wait.`}
               </p>
             )}
-            <p className="text-[11px] font-bold text-emerald-700/60 uppercase tracking-widest">
+            <p className="text-[11px] font-bold text-emerald-700/60 uppercase tracking-widest mb-8">
               {isId ? "Jangan tutup halaman ini" : "Please keep this page open"}
             </p>
+
+            <button
+              type="button"
+              onClick={handleCancelCalculate}
+              className="w-full py-3.5 rounded-2xl bg-rose-50 border border-rose-100 text-rose-600 font-extrabold text-[13px] hover:bg-rose-100 hover:text-rose-700 transition-all duration-300 flex items-center justify-center gap-2 active:scale-95"
+            >
+              <X className="w-4 h-4" />
+              {isId ? "Batalkan Analisis" : "Cancel Analysis"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* ========================================= */}
+      {/* MODAL 2: SAVE SUCCESS (Spring Bounce + Ping) */}
+      {/* ========================================= */}
+      {showSaveSuccess && (
+        <div className="fixed inset-0 z-[110] bg-slate-900/40 backdrop-blur-sm flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl max-w-sm w-full overflow-hidden flex flex-col relative animate-in zoom-in-[0.5] fade-in duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
+            
+            <div className="bg-gradient-to-br from-emerald-500 to-emerald-700 pt-10 pb-8 px-8 text-center relative overflow-hidden">
+              {/* Efek Ping Ring Putih di Belakang */}
+              <div className="w-20 h-20 mx-auto bg-white rounded-full flex items-center justify-center shadow-lg relative z-10">
+                <div className="absolute inset-0 rounded-full border-2 border-white animate-ping opacity-50 duration-1000" />
+                <CheckCircle2 className="w-10 h-10 text-emerald-500" />
+              </div>
+            </div>
+
+            <div className="p-8 pt-6 text-center">
+              <h3 className="text-2xl font-extrabold text-emerald-950 mb-2">
+                {isId ? "Berhasil Disimpan!" : "Saved Successfully!"}
+              </h3>
+              <p className="text-[13px] font-medium text-emerald-900/60 leading-relaxed mb-6">
+                {isId
+                  ? "Hasil Rapid-FS telah diamankan ke database. Anda dapat meninjaunya kembali kapan saja."
+                  : "The Rapid-FS result has been secured to the database. You can review it anytime."}
+              </p>
+
+              <div className="bg-emerald-50/50 border border-emerald-100/80 rounded-2xl p-4 mb-8 text-left">
+                <div className="flex justify-between items-center mb-2 pb-2 border-b border-emerald-100/50">
+                  <span className="text-[11px] font-bold text-emerald-900/50 uppercase tracking-widest">
+                    {isId ? "Nama Proyek" : "Project"}
+                  </span>
+                  <span className="text-[13px] font-extrabold text-emerald-950 truncate max-w-[120px]">
+                    {locationName || "Unnamed Project"}
+                  </span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-[11px] font-bold text-emerald-900/50 uppercase tracking-widest">
+                    {isId ? "Skor Final" : "Final Score"}
+                  </span>
+                  <span className="text-[14px] font-extrabold text-emerald-600">
+                    {results?.feasibility_score?.toFixed(1)} / 100
+                  </span>
+                </div>
+              </div>
+
+              <div className="flex flex-col gap-3">
+                <Link
+                  href={`/${lang}/dashboard`}
+                  className="w-full py-4 bg-emerald-700 text-white font-bold text-[14px] rounded-2xl hover:bg-emerald-600 transition-colors shadow-sm active:scale-95"
+                >
+                  {isId ? "Buka Dashboard" : "Open Dashboard"}
+                </Link>
+                <button
+                  type="button"
+                  onClick={() => setShowSaveSuccess(false)}
+                  className="w-full py-4 bg-white border border-slate-200 text-slate-600 font-bold text-[14px] rounded-2xl hover:bg-slate-50 hover:text-slate-800 transition-colors active:scale-95"
+                >
+                  {isId ? "Tutup Modal" : "Close Modal"}
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       )}
@@ -451,14 +641,9 @@ export default function ProductsPage() {
         </ScrollReveal>
 
         <div className="flex flex-col items-center gap-8">
-          
           <div className="flex flex-col lg:flex-row justify-center items-stretch gap-6 lg:gap-8 w-full max-w-5xl">
-            
-            {/* KIRI - Panel Panduan */}
             <ScrollReveal delay="delay-100" className="w-full lg:w-[340px] shrink-0 flex flex-col">
               <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] border border-white p-8 shadow-[0_10px_40px_-10px_rgba(4,43,34,0.06)] flex flex-col flex-1">
-                
-                {/* 1. Langkah-langkah */}
                 <div className="mb-4">
                   <div className="flex items-center gap-2 mb-5">
                     <Info className="w-4 h-4 text-emerald-600" />
@@ -482,9 +667,8 @@ export default function ProductsPage() {
 
                 <div className="w-full h-px bg-slate-100 my-4" />
 
-                {/* 2 & 3. Info Penting & Waktu Proses */}
                 <div className="space-y-4 mb-6">
-                  <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100 hover:bg-slate-50 transition-colors">
+                  <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100">
                     <div className="flex items-center gap-2 mb-1.5">
                       <AlertCircle className="w-3.5 h-3.5 text-amber-500" />
                       <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
@@ -497,8 +681,7 @@ export default function ProductsPage() {
                         : "Use a project boundary, not national maps. (.shp, .shx, .dbf, .prj)"}
                     </p>
                   </div>
-
-                  <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100 hover:bg-slate-50 transition-colors">
+                  <div className="p-4 rounded-2xl bg-slate-50/80 border border-slate-100">
                     <div className="flex items-center gap-2 mb-1.5">
                       <Clock className="w-3.5 h-3.5 text-sky-500" />
                       <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest">
@@ -513,29 +696,25 @@ export default function ProductsPage() {
                   </div>
                 </div>
 
-                {/* 4. Butuh Bantuan (Card Opsi 1) */}
                 <div className="mb-6">
-                  <div className="p-5 rounded-[1.25rem] bg-gradient-to-b from-emerald-50/50 to-emerald-50/20 border border-emerald-100/60 text-center transition-all hover:bg-emerald-50/80">
-                    <div className="w-10 h-10 bg-white rounded-full flex items-center justify-center mx-auto mb-3 shadow-sm border border-emerald-50">
-                      <svg className="w-5 h-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
-                      </svg>
-                    </div>
+                  <div className="p-5 rounded-[1.25rem] bg-gradient-to-b from-emerald-50/50 to-emerald-50/20 border border-emerald-100/60 text-center hover:bg-emerald-50/80 transition-colors">
                     <p className="text-[13px] font-bold text-emerald-950 mb-1">
                       {isId ? "Butuh Bantuan?" : "Need Help?"}
                     </p>
                     <p className="text-[12px] text-emerald-900/60 font-medium leading-relaxed mb-4">
-                      {isId 
-                        ? "Tim kami siap membantu kendala data spasial Anda." 
+                      {isId
+                        ? "Tim kami siap membantu kendala data spasial Anda."
                         : "Our experts are ready to help with your spatial data."}
                     </p>
-                    <Link href={`/${lang}/contact`} className="block w-full py-2.5 bg-white border border-emerald-200 text-emerald-800 text-[12px] font-bold rounded-xl hover:bg-emerald-50 transition-colors shadow-sm">
+                    <Link
+                      href={`/${lang}/contact`}
+                      className="block w-full py-2.5 bg-white border border-emerald-200 text-emerald-800 text-[12px] font-bold rounded-xl hover:bg-emerald-50 transition-all duration-300 shadow-sm active:scale-95"
+                    >
                       {isId ? "Hubungi Support" : "Contact Support"}
                     </Link>
                   </div>
                 </div>
 
-                {/* 5. Powered by (Logo 2.png) - Terdorong otomatis ke bagian paling bawah */}
                 <div className="mt-auto pt-6 flex flex-col items-center justify-center gap-2 border-t border-slate-100">
                   <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">
                     Powered By
@@ -549,11 +728,9 @@ export default function ProductsPage() {
                     unoptimized
                   />
                 </div>
-
               </div>
             </ScrollReveal>
 
-            {/* KANAN - Panel Form */}
             <ScrollReveal delay="delay-200" className="w-full lg:w-[460px] shrink-0 flex flex-col">
               <div className="bg-white/80 backdrop-blur-xl rounded-[2.5rem] border border-white p-8 shadow-[0_10px_40px_-10px_rgba(4,43,34,0.06)] flex flex-col flex-1">
                 <div className="flex bg-emerald-50/80 border border-emerald-100 p-1.5 rounded-[1.25rem] mb-7 relative">
@@ -569,7 +746,7 @@ export default function ProductsPage() {
                       setError(null);
                       setResults(null);
                     }}
-                    className={`flex-1 py-3 text-[13px] font-bold rounded-xl relative z-10 flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-3 text-[13px] font-bold rounded-xl relative z-10 flex items-center justify-center gap-2 active:scale-95 transition-all duration-200 ${
                       mode === "spatial" ? "text-white" : "text-emerald-900/50 hover:text-emerald-900/70"
                     }`}
                   >
@@ -583,7 +760,7 @@ export default function ProductsPage() {
                       setError(null);
                       setResults(null);
                     }}
-                    className={`flex-1 py-3 text-[13px] font-bold rounded-xl relative z-10 flex items-center justify-center gap-2 ${
+                    className={`flex-1 py-3 text-[13px] font-bold rounded-xl relative z-10 flex items-center justify-center gap-2 active:scale-95 transition-all duration-200 ${
                       mode === "manual" ? "text-white" : "text-emerald-900/50 hover:text-emerald-900/70"
                     }`}
                   >
@@ -593,9 +770,8 @@ export default function ProductsPage() {
                 </div>
 
                 <form onSubmit={handleCalculate} className="space-y-6 flex-1 flex flex-col justify-between">
-                  {/* SPATIAL MODE */}
                   {mode === "spatial" && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="space-y-6">
                       <div>
                         <label className="block text-[12px] font-bold text-emerald-900/70 uppercase tracking-widest mb-3 flex justify-between">
                           <span>{t.upload_label}</span>
@@ -609,12 +785,12 @@ export default function ProductsPage() {
                           onDragLeave={() => setIsDragging(false)}
                           onDrop={onDrop}
                           onClick={() => fileInputRef.current?.click()}
-                          className={`rounded-[1.75rem] p-10 text-center cursor-pointer transition-all border-2 ${
+                          className={`rounded-[1.75rem] p-10 text-center cursor-pointer transition-all duration-300 border-2 relative ${
                             isDragging
-                              ? "border-emerald-400 bg-emerald-100/50 scale-[1.02]"
+                              ? "border-emerald-400 bg-emerald-100/50 scale-[1.03]"
                               : selectedFile
                               ? "border-emerald-300 bg-emerald-50"
-                              : "border-dashed border-emerald-200 bg-slate-50 hover:border-emerald-400 hover:bg-emerald-50/30"
+                              : "border-dashed border-emerald-200 bg-slate-50 hover:border-emerald-400 hover:bg-emerald-50/30 hover:shadow-inner"
                           }`}
                         >
                           <input
@@ -627,28 +803,45 @@ export default function ProductsPage() {
                               if (f) handleFileSelect(f);
                             }}
                           />
+                          
                           {selectedFile ? (
-                            <div className="flex flex-col items-center">
-                              <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 text-emerald-600 border border-emerald-100 shadow-sm">
+                            <div className="flex flex-col items-center w-full">
+                              <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 text-emerald-600 border border-emerald-100 shadow-sm transition-transform hover:scale-105">
                                 <FileArchive className="w-8 h-8" strokeWidth={1.5} />
                               </div>
                               <p className="font-extrabold text-emerald-950 text-sm break-all px-2">
                                 {selectedFile.name}
                               </p>
-                              <p className="text-xs font-medium text-emerald-900/50 mt-1">
+                              <p className="text-xs font-medium text-emerald-900/50 mt-1 mb-5">
                                 {fileSizeMb < 1
                                   ? `${(selectedFile.size / 1024).toFixed(1)} KB`
                                   : `${fileSizeMb.toFixed(1)} MB`}{" "}
                                 · Click to replace
                               </p>
+                              
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  clearSelectedFile();
+                                }}
+                                className="px-5 py-2.5 bg-rose-50 border border-rose-100 text-rose-600 text-[12px] font-bold rounded-xl hover:bg-rose-100 hover:text-rose-700 hover:shadow-sm transition-all duration-300 flex items-center gap-2 active:scale-95"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                                {isId ? "Hapus File" : "Remove File"}
+                              </button>
                             </div>
                           ) : (
                             <div className="flex flex-col items-center">
-                              <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 text-emerald-400 border border-emerald-100 shadow-sm transition-transform group-hover:-translate-y-1">
+                              <div className="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mb-4 text-emerald-400 border border-emerald-100 shadow-sm transition-transform hover:-translate-y-1">
                                 <UploadCloud className="w-8 h-8" strokeWidth={1.5} />
                               </div>
-                              <p className="font-extrabold text-emerald-950 text-[15px] mb-1">{t.upload_hint}</p>
-                              <p className="text-xs font-medium text-emerald-900/50 mb-4">{t.upload_note}</p>
+                              <p className="font-extrabold text-emerald-950 text-[15px] mb-1">
+                                {t.upload_hint}
+                              </p>
+                              <p className="text-xs font-medium text-emerald-900/50 mb-4">
+                                {t.upload_note}
+                              </p>
                               <p className="text-[10px] font-bold text-emerald-700 bg-emerald-100/80 px-4 py-1.5 rounded-full uppercase tracking-widest">
                                 .shp .shx .dbf .prj
                               </p>
@@ -656,7 +849,6 @@ export default function ProductsPage() {
                           )}
                         </div>
                       </div>
-
                       <div className="space-y-2">
                         <label className="block text-[12px] font-bold text-emerald-900/70 uppercase tracking-widest">
                           {t.location_name}
@@ -688,9 +880,8 @@ export default function ProductsPage() {
                     </div>
                   )}
 
-                  {/* MANUAL MODE */}
                   {mode === "manual" && (
-                    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                    <div className="space-y-6">
                       <div className="space-y-2">
                         <label className="block text-[12px] font-bold text-emerald-900/70 uppercase tracking-widest">
                           {t.location_name}
@@ -734,40 +925,41 @@ export default function ProductsPage() {
                           placeholder="e.g., 50000"
                         />
                       </div>
-                      
-                      <div className="p-5 rounded-2xl border border-emerald-100 bg-white shadow-sm space-y-6">
+                      <div className="p-5 rounded-2xl border border-emerald-100 bg-white shadow-sm space-y-6 transition-all duration-300 hover:shadow-md">
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
                             <label className="block text-[11px] font-bold text-emerald-900/70 uppercase tracking-widest">
                               {t.duration} (Years)
                             </label>
-                            <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-extrabold">{duration}</span>
+                            <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-extrabold">
+                              {duration}
+                            </span>
                           </div>
                           <input
                             type="range"
                             min="1"
                             max="100"
-                            className="w-full h-2 bg-emerald-100 rounded-lg appearance-none cursor-pointer accent-emerald-600 focus:outline-none"
+                            className="w-full h-2 bg-emerald-100 rounded-lg appearance-none cursor-pointer accent-emerald-600"
                             value={duration}
                             onChange={(e) => setDuration(e.target.value)}
                           />
                         </div>
-
                         <div className="w-full h-px bg-slate-100" />
-
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
                             <label className="block text-[11px] font-bold text-emerald-900/70 uppercase tracking-widest">
                               {t.carbon_price} (USD)
                             </label>
-                            <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-extrabold">${carbonPrice}</span>
+                            <span className="px-3 py-1 bg-emerald-50 text-emerald-700 rounded-lg text-sm font-extrabold">
+                              ${carbonPrice}
+                            </span>
                           </div>
                           <input
                             type="range"
                             min="1"
                             max="100"
                             step="0.5"
-                            className="w-full h-2 bg-emerald-100 rounded-lg appearance-none cursor-pointer accent-emerald-600 focus:outline-none"
+                            className="w-full h-2 bg-emerald-100 rounded-lg appearance-none cursor-pointer accent-emerald-600"
                             value={carbonPrice}
                             onChange={(e) => setCarbonPrice(e.target.value)}
                           />
@@ -778,22 +970,16 @@ export default function ProductsPage() {
 
                   <div className="mt-8 space-y-4">
                     {error && (
-                      <div className="p-4 bg-rose-50 border border-rose-200/60 rounded-2xl text-rose-800 text-[13px] font-medium flex items-start gap-3 animate-in fade-in">
+                      <div className="p-4 bg-rose-50 border border-rose-200/60 rounded-2xl text-rose-800 text-[13px] font-medium flex items-start gap-3">
                         <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-500" />
                         <span className="leading-relaxed">{error}</span>
                       </div>
                     )}
-                    {successMsg && (
-                      <div className="p-4 bg-emerald-50 border border-emerald-200/60 rounded-2xl text-emerald-800 text-[13px] font-medium flex items-start gap-3 animate-in fade-in">
-                        <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-emerald-500" />
-                        <span>{successMsg}</span>
-                      </div>
-                    )}
-
+                    
                     <button
                       type="submit"
                       disabled={isCalculating}
-                      className="w-full py-4 bg-emerald-700 text-white font-bold rounded-2xl hover:bg-emerald-600 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-[14px] transition-all shadow-md shadow-emerald-700/20 active:scale-[0.98]"
+                      className="w-full py-4 bg-emerald-800 text-white font-bold rounded-2xl hover:bg-emerald-950 disabled:opacity-70 disabled:cursor-not-allowed flex items-center justify-center gap-2 text-[14px] transition-all duration-300 shadow-md shadow-emerald-950/20 active:scale-95"
                     >
                       {isCalculating ? (
                         <>
@@ -810,42 +996,44 @@ export default function ProductsPage() {
             </ScrollReveal>
           </div>
 
-          {/* BARIS BAWAH: Panel Hasil */}
           {results && (
             <ScrollReveal delay="delay-100" className="w-full max-w-5xl shrink-0">
               <div
                 ref={resultsRef}
-                className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] border border-white p-8 md:p-10 space-y-8 shadow-[0_10px_40px_-10px_rgba(4,43,34,0.08)] scroll-mt-28 animate-in fade-in slide-in-from-bottom-8 duration-700"
+                className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] border border-white p-8 md:p-10 space-y-8 shadow-[0_10px_40px_-10px_rgba(4,43,34,0.08)] scroll-mt-28"
               >
-                {/* Score Section */}
                 <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-emerald-50">
-                  <div className="flex items-center gap-6">
-                    <div>
-                      <p className="text-[11px] font-bold tracking-widest uppercase text-emerald-900/40 mb-1">
-                        {t.score_label}
-                      </p>
-                      <div className="flex items-baseline gap-1.5">
-                        <span className="text-6xl md:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-emerald-500 to-cyan-600 leading-none">
-                          {results.feasibility_score?.toFixed(1)}
-                        </span>
-                        <span className="text-xl md:text-2xl font-bold text-emerald-900/20">/100</span>
-                      </div>
+                  <div>
+                    <p className="text-[11px] font-bold tracking-widest uppercase text-emerald-900/40 mb-1">
+                      {t.score_label}
+                    </p>
+                    <div className="flex items-baseline gap-1.5">
+                      <span className="text-6xl md:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-emerald-500 to-cyan-600 leading-none">
+                        {results.feasibility_score?.toFixed(1)}
+                      </span>
+                      <span className="text-xl md:text-2xl font-bold text-emerald-900/20">/100</span>
                     </div>
                   </div>
-                  <span className="px-6 py-3 bg-emerald-50 text-emerald-700 text-[14px] font-extrabold tracking-widest uppercase rounded-full border border-emerald-200/50 shadow-sm">
+                  <span className="px-6 py-3 bg-emerald-50 text-emerald-700 text-[14px] font-extrabold tracking-widest uppercase rounded-full border border-emerald-200/50 shadow-sm hover:bg-emerald-100 transition-colors cursor-default">
                     {results.feasibility_category}
                   </span>
                 </div>
 
-                {/* Metrics Grid */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
                   <Metric label="Carbon Stock" value={`${formatNumber(results.co2e_ton)}`} unit="t" />
-                  <Metric label="Total Credits" value={`${formatNumber(results.acc_total_credits)}`} unit="t" />
+                  <Metric
+                    label="Total Credits"
+                    value={`${formatNumber(results.acc_total_credits)}`}
+                    unit="t"
+                  />
                   <Metric label="Gross Revenue" value={formatCurrency(results.gross_revenue_usd)} />
-                  <Metric label="Net Revenue" value={formatCurrency(results.net_revenue_usd)} highlight />
+                  <Metric
+                    label="Net Revenue"
+                    value={formatCurrency(results.net_revenue_usd)}
+                    highlight
+                  />
                 </div>
 
-                {/* Split Content: Peta Spasial & Rekomendasi */}
                 <div className="grid md:grid-cols-2 gap-6 md:gap-8 items-stretch">
                   {results.geometry && (
                     <div className="h-full flex flex-col">
@@ -853,20 +1041,25 @@ export default function ProductsPage() {
                         <Map className="w-4 h-4 text-emerald-500" />
                         {isId ? "Pemetaan Spasial" : "Spatial Mapping"}
                       </p>
-                      <div className="rounded-[1.5rem] overflow-hidden border border-emerald-100 flex-1 shadow-inner bg-slate-50 min-h-[300px]">
-                        <MapPreview key={JSON.stringify(results.geometry)} geometry={results.geometry} />
+                      <div className="rounded-[1.5rem] overflow-hidden border border-emerald-100 flex-1 shadow-inner bg-slate-50 min-h-[300px] hover:shadow-md transition-shadow">
+                        <MapPreview
+                          key={JSON.stringify(results.geometry)}
+                          geometry={results.geometry}
+                        />
                       </div>
                     </div>
                   )}
-
                   {results.recommendations?.length > 0 && (
-                    <div className="h-full flex flex-col p-6 md:p-8 bg-emerald-50/50 rounded-[1.5rem] border border-emerald-100">
+                    <div className="h-full flex flex-col p-6 md:p-8 bg-emerald-50/50 rounded-[1.5rem] border border-emerald-100 hover:shadow-sm transition-all duration-300">
                       <p className="text-[11px] font-bold text-emerald-900/70 uppercase tracking-widest mb-5">
                         {t.recommendations}
                       </p>
                       <ul className="space-y-4">
                         {results.recommendations.map((rec: string, i: number) => (
-                          <li key={i} className="text-[14px] text-emerald-900/80 font-medium flex items-start gap-3 leading-relaxed">
+                          <li
+                            key={i}
+                            className="text-[14px] text-emerald-900/80 font-medium flex items-start gap-3 leading-relaxed hover:text-emerald-950 transition-colors"
+                          >
                             <CheckCircle2 className="w-5 h-5 text-emerald-500 mt-0.5 shrink-0" />
                             <span>{rec}</span>
                           </li>
@@ -876,19 +1069,20 @@ export default function ProductsPage() {
                   )}
                 </div>
 
-                {/* Actions */}
                 <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-emerald-50">
                   <button
+                    type="button"
                     onClick={handleSave}
                     disabled={isSaving}
-                    className="flex-1 px-6 py-4 bg-emerald-950 text-white text-[15px] font-bold rounded-2xl disabled:opacity-60 disabled:cursor-not-allowed flex justify-center items-center gap-2 hover:bg-emerald-900 transition-colors shadow-md shadow-emerald-950/20 active:scale-[0.98]"
+                    className="flex-1 px-6 py-4 bg-emerald-800 text-white text-[15px] font-bold rounded-2xl disabled:opacity-60 disabled:cursor-not-allowed flex justify-center items-center gap-2 hover:bg-emerald-950 transition-all duration-300 shadow-md shadow-emerald-950/20 active:scale-95"
                   >
                     <Save className="w-5 h-5" />
                     {isSaving ? (isId ? "Menyimpan…" : "Saving…") : t.save}
                   </button>
                   <button
+                    type="button"
                     onClick={handleDownloadPDF}
-                    className="flex-1 px-6 py-4 bg-white border border-emerald-200/80 text-emerald-800 text-[15px] font-bold rounded-2xl flex justify-center items-center gap-2 hover:bg-emerald-50 transition-colors shadow-sm active:scale-[0.98]"
+                    className="flex-1 px-6 py-4 bg-white border border-emerald-200/80 text-emerald-800 text-[15px] font-bold rounded-2xl flex justify-center items-center gap-2 hover:bg-emerald-50 transition-all duration-300 shadow-sm active:scale-95"
                   >
                     <Download className="w-5 h-5" />
                     {t.download_pdf}
@@ -897,7 +1091,6 @@ export default function ProductsPage() {
               </div>
             </ScrollReveal>
           )}
-
         </div>
       </div>
     </main>
@@ -917,18 +1110,34 @@ function Metric({
 }) {
   return (
     <div
-      className={`p-5 md:p-6 rounded-[1.5rem] border transition-all duration-300 flex flex-col justify-center ${
-        highlight 
-          ? "bg-emerald-50/80 border-emerald-200/50 shadow-sm" 
-          : "bg-white border-emerald-100/60 shadow-sm hover:shadow-md hover:-translate-y-1"
+      className={`p-5 md:p-6 rounded-[1.5rem] border transition-all duration-300 ease-out flex flex-col justify-center hover:-translate-y-1.5 ${
+        highlight
+          ? "bg-emerald-50/80 border-emerald-200/50 shadow-sm hover:shadow-[0_8px_30px_-12px_rgba(16,185,129,0.3)]"
+          : "bg-white border-emerald-100/60 shadow-sm hover:shadow-[0_8px_30px_-12px_rgba(16,185,129,0.2)]"
       }`}
     >
-      <p className={`text-[10px] md:text-[11px] font-bold tracking-widest uppercase mb-2 ${highlight ? 'text-emerald-700/60' : 'text-emerald-900/40'}`}>
+      <p
+        className={`text-[10px] md:text-[11px] font-bold tracking-widest uppercase mb-2 ${
+          highlight ? "text-emerald-700/60" : "text-emerald-900/40"
+        }`}
+      >
         {label}
       </p>
-      <p className={`text-[20px] sm:text-[24px] md:text-[28px] font-extrabold leading-tight break-words ${highlight ? 'text-emerald-900' : 'text-emerald-950'}`}>
+      <p
+        className={`text-[20px] sm:text-[24px] md:text-[28px] font-extrabold leading-tight break-words ${
+          highlight ? "text-emerald-900" : "text-emerald-950"
+        }`}
+      >
         {value}
-        {unit && <span className={`text-[12px] font-bold ml-1.5 ${highlight ? 'text-emerald-600' : 'text-emerald-600/60'}`}>{unit}</span>}
+        {unit && (
+          <span
+            className={`text-[20px] font-bold ml-1.5 ${
+              highlight ? "text-emerald-800" : "text-emerald-800"
+            }`}
+          >
+            {unit}
+          </span>
+        )}
       </p>
     </div>
   );

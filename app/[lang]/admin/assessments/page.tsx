@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { FileText, ExternalLink } from "lucide-react";
+import { FileText, ExternalLink, Phone, Mail, User } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
@@ -16,7 +16,21 @@ type Assessment = {
   feasibility_score: number;
   feasibility_category: string;
   created_at?: string;
+  submitter_name?: string | null;
+  submitter_phone?: string | null;
+  submitter_email?: string | null;
 };
+
+function normalizeList(data: unknown): Assessment[] {
+  if (Array.isArray(data)) return data;
+  if (data && typeof data === "object") {
+    const obj = data as Record<string, unknown>;
+    if (Array.isArray(obj.items)) return obj.items as Assessment[];
+    if (Array.isArray(obj.data)) return obj.data as Assessment[];
+    if (Array.isArray(obj.results)) return obj.results as Assessment[];
+  }
+  return [];
+}
 
 export default function AdminAssessmentsPage() {
   const params = useParams();
@@ -51,16 +65,16 @@ export default function AdminAssessmentsPage() {
           return;
         }
 
-        // Catatan: backend hanya role "admin" yang dapat semua data.
-        // super_admin mungkin hanya melihat punya sendiri sampai BE diupdate.
         const res = await fetch(`${API_URL}/assessments`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (!res.ok) throw new Error(isId ? "Gagal memuat data" : "Failed to load");
+        if (!res.ok) {
+          throw new Error(isId ? "Gagal memuat data" : "Failed to load");
+        }
         const data = await res.json();
-        setItems(Array.isArray(data) ? data : []);
+        setItems(normalizeList(data));
       } catch (err: any) {
-        setError(err.message);
+        setError(err.message || "Error");
       } finally {
         setLoading(false);
       }
@@ -74,7 +88,7 @@ export default function AdminAssessmentsPage() {
   if (loading) {
     return (
       <div className="flex justify-center py-20">
-        <div className="w-10 h-10 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin"></div>
+        <div className="w-10 h-10 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin" />
       </div>
     );
   }
@@ -107,63 +121,116 @@ export default function AdminAssessmentsPage() {
         </div>
       ) : (
         <div className="space-y-3">
-          {items.map((item) => (
-            <div
-              key={item.id}
-              className="bg-white border border-emerald-100/80 rounded-2xl p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4 shadow-sm"
-            >
-              <div className="flex-1 min-w-0">
-                <div className="flex flex-wrap items-center gap-2 mb-1">
-                  {item.feasibility_category && (
-                    <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
-                      {item.feasibility_category}
-                    </span>
-                  )}
-                  {item.user_id != null && (
-                    <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-50 text-slate-600 border border-slate-200">
-                      User ID: {item.user_id}
-                    </span>
-                  )}
-                </div>
-                <h3 className="text-lg font-bold text-emerald-950 truncate">
-                  {item.location_name || "Unnamed Project"}
-                </h3>
-                <p className="text-sm text-emerald-900/40 font-medium mt-0.5">
-                  {item.ecosystem_type?.replace(/_/g, " ")}
-                  {item.area_ha != null && ` · ${Number(item.area_ha).toLocaleString()} ha`}
-                  {item.created_at &&
-                    ` · ${new Date(item.created_at).toLocaleDateString(
-                      isId ? "id-ID" : "en-US"
-                    )}`}
-                </p>
-              </div>
+          {items.map((item) => {
+            const name = item.submitter_name?.trim() || null;
+            const email = item.submitter_email?.trim() || null;
+            const phone = item.submitter_phone?.trim() || null;
 
-              <div className="text-center shrink-0 px-4">
-                <p className="text-[11px] font-bold text-emerald-800/40 uppercase tracking-widest mb-1">
-                  Score
-                </p>
-                <p className="text-2xl font-extrabold text-emerald-700">
-                  {formatScore(item.feasibility_score)}
-                </p>
-              </div>
-
-              <Link
-                href={`/${lang}/dashboard/${item.id}`}
-                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-100 text-emerald-700 text-sm font-bold hover:bg-emerald-50 transition-colors shrink-0"
+            return (
+              <div
+                key={item.id}
+                className="bg-white border border-emerald-100/80 rounded-2xl p-5 md:p-6 flex flex-col md:flex-row md:items-center gap-4 shadow-sm"
               >
-                <ExternalLink className="w-4 h-4" />
-                {isId ? "Detail" : "View"}
-              </Link>
-            </div>
-          ))}
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1">
+                    {item.feasibility_category && (
+                      <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-100">
+                        {item.feasibility_category}
+                      </span>
+                    )}
+                    {item.user_id != null && (
+                      <span className="text-[11px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-slate-50 text-slate-600 border border-slate-200">
+                        ID {item.user_id}
+                      </span>
+                    )}
+                  </div>
+
+                  <h3 className="text-lg font-bold text-emerald-950 truncate">
+                    {item.location_name || "Unnamed Project"}
+                  </h3>
+
+                  <p className="text-sm text-emerald-900/40 font-medium mt-0.5">
+                    {item.ecosystem_type?.replace(/_/g, " ")}
+                    {item.area_ha != null &&
+                      ` · ${Number(item.area_ha).toLocaleString()} ha`}
+                    {item.created_at &&
+                      ` · ${new Date(item.created_at).toLocaleDateString(
+                        isId ? "id-ID" : "en-US"
+                      )}`}
+                  </p>
+
+                  {/* Kontak — selalu tampil */}
+                  <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1.5 text-[13px] font-medium text-emerald-900/70">
+                    <span className="inline-flex items-center gap-1.5">
+                      <User className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      {name || (
+                        <span className="text-emerald-900/30">
+                          {isId ? "Nama tidak ada" : "No name"}
+                        </span>
+                      )}
+                    </span>
+
+                    <span className="inline-flex items-center gap-1.5 min-w-0">
+                      <Mail className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      {email ? (
+                        <a
+                          href={`mailto:${email}`}
+                          className="truncate hover:text-emerald-700"
+                        >
+                          {email}
+                        </a>
+                      ) : (
+                        <span className="text-emerald-900/30">
+                          {isId ? "Email tidak ada" : "No email"}
+                        </span>
+                      )}
+                    </span>
+
+                    <span className="inline-flex items-center gap-1.5">
+                      <Phone className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                      {phone ? (
+                        <a
+                          href={`tel:${phone}`}
+                          className="hover:text-emerald-700"
+                        >
+                          {phone}
+                        </a>
+                      ) : (
+                        <span className="text-emerald-900/30">
+                          {isId ? "Telepon tidak ada" : "No phone"}
+                        </span>
+                      )}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="text-center shrink-0 px-4">
+                  <p className="text-[11px] font-bold text-emerald-800/40 uppercase tracking-widest mb-1">
+                    Score
+                  </p>
+                  <p className="text-2xl font-extrabold text-emerald-700">
+                    {formatScore(item.feasibility_score)}
+                  </p>
+                </div>
+
+                <Link
+                  href={`/${lang}/dashboard/${item.id}`}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-100 text-emerald-700 text-sm font-bold hover:bg-emerald-50 transition-colors shrink-0"
+                >
+                  <ExternalLink className="w-4 h-4" />
+                  {isId ? "Detail" : "View"}
+                </Link>
+              </div>
+            );
+          })}
         </div>
       )}
 
-      <div className="mt-8 p-4 bg-amber-50 border border-amber-100 rounded-xl text-amber-800 text-sm font-medium">
+      <p className="mt-6 text-xs font-medium text-emerald-900/40">
         {isId
-          ? "Catatan: Email user belum tersedia di API assessment. Minta backend menambahkan user_email / user_full_name agar admin bisa langsung menghubungi."
-          : "Note: User email is not in the assessment API yet. Ask backend to add user_email / user_full_name so admin can contact clients directly."}
-      </div>
+          ? "Nama/telepon terisi jika user menyimpan assessment setelah update BE, dan FE mengirim submitter_name / submitter_phone / submitter_email."
+          : "Name/phone appear when assessments are saved after the BE update and the client sends submitter_name / submitter_phone / submitter_email."}
+      </p>
     </div>
   );
 }
