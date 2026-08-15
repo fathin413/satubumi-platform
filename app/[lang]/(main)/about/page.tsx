@@ -111,10 +111,12 @@ export default function AboutPage() {
     setMounted(true);
   }, []);
 
-  useEffect(() => {
+    useEffect(() => {
     const load = async () => {
+      setLoading(true);
       try {
-        const res = await fetch(`${API_URL}/articles/`);
+        const apiLang = lang === "en" ? "en" : "id";
+        const res = await fetch(`${API_URL}/articles/?lang=${apiLang}`);
         if (!res.ok) throw new Error("Failed");
         const data = await res.json();
         const list: Article[] = Array.isArray(data) ? data : [];
@@ -128,7 +130,7 @@ export default function AboutPage() {
       }
     };
     load();
-  }, []);
+  }, [lang]);
 
   if (!mounted || loading) {
     return (

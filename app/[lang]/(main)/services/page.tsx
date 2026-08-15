@@ -283,10 +283,12 @@ export default function ServicesPage() {
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
+    useEffect(() => {
     const load = async () => {
+      setLoading(true);
       try {
-        const res = await fetch(`${API_URL}/articles/`);
+        const apiLang = lang === "en" ? "en" : "id";
+        const res = await fetch(`${API_URL}/articles/?lang=${apiLang}`);
         if (!res.ok) throw new Error("Failed");
         const data = await res.json();
         const list: Article[] = Array.isArray(data) ? data : [];
@@ -315,7 +317,7 @@ export default function ServicesPage() {
       }
     };
     load();
-  }, []);
+  }, [lang]);
 
   const getImage = (item: ServiceItem, index: number) =>
     resolveImageUrl(item.image_url, fallbackImages[index % fallbackImages.length]);
