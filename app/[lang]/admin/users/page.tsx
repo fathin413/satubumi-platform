@@ -15,6 +15,9 @@ import {
   User as UserIcon,
   Crown,
   ChevronDown,
+  Mail,
+  Phone,
+  Lock,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -171,6 +174,7 @@ export default function AdminUsersPage() {
     try {
       if (editingUser) {
         const payload: Record<string, string> = {
+          email: form.email.trim(),
           full_name: form.full_name,
           phone_number: form.phone_number,
           role: form.role,
@@ -401,13 +405,7 @@ export default function AdminUsersPage() {
                   : "Create New User"}
               </h2>
               <p className="text-[14px] font-medium text-slate-500">
-                {editingUser
-                  ? isId
-                    ? "Perbarui informasi akun. Kosongkan sandi jika tidak ingin diubah."
-                    : "Update account info. Leave password blank to keep current."
-                  : isId
-                  ? "Lengkapi formulir kredensial di bawah ini."
-                  : "Fill out the credentials form below."}
+                {isId ? "Isi formulir kredensial di bawah secara lengkap." : "Fill out the credentials form below."}
               </p>
             </div>
             <button
@@ -419,62 +417,82 @@ export default function AdminUsersPage() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-7">
               
-              <div className="md:col-span-2">
-                <label className="block text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                  {isId ? "Nama Lengkap" : "Full Name"}
-                </label>
+              {/* INTERACTIVE INPUT: FULL NAME */}
+              <div className="md:col-span-2 relative group">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-6 pointer-events-none text-slate-400 group-focus-within:text-emerald-500 transition-colors">
+                  <UserIcon className="w-[22px] h-[22px]" />
+                </div>
                 <input
                   required
-                  className="w-full px-5 py-4 rounded-2xl border border-slate-200 bg-slate-50/50 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 font-medium text-[15px] text-slate-800 transition-all duration-300"
+                  placeholder=" "
+                  className="peer w-full pl-14 pr-6 pt-7 pb-3 rounded-2xl border border-slate-200 bg-slate-50/50 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 font-medium text-[15px] text-slate-800 transition-all duration-300"
                   value={form.full_name}
                   onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                  placeholder="e.g. John Doe"
                 />
+                <label className="absolute left-14 top-4 text-[15px] font-medium text-slate-400 transition-all duration-300 pointer-events-none origin-left peer-focus:-translate-y-2.5 peer-focus:scale-[0.8] peer-focus:text-emerald-500 peer-focus:font-bold peer-[:not(:placeholder-shown)]:-translate-y-2.5 peer-[:not(:placeholder-shown)]:scale-[0.8] peer-[:not(:placeholder-shown)]:font-bold">
+                  {isId ? "Nama Lengkap" : "Full Name"}
+                </label>
               </div>
 
-              <div>
-                <label className="block text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                  Email
-                </label>
+              {/* INTERACTIVE INPUT: EMAIL */}
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-6 pointer-events-none text-slate-400 group-focus-within:text-emerald-500 transition-colors">
+                  <Mail className="w-[22px] h-[22px]" />
+                </div>
                 <input
                   type="email"
                   required
-                  disabled={!!editingUser}
-                  className="w-full px-5 py-4 rounded-2xl border border-slate-200 bg-slate-50/50 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 font-medium text-[15px] text-slate-800 transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed disabled:bg-slate-100"
+                  placeholder=" "
+                  className="peer w-full pl-14 pr-6 pt-7 pb-3 rounded-2xl border border-slate-200 bg-slate-50/50 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 font-medium text-[15px] text-slate-800 transition-all duration-300"
                   value={form.email}
                   onChange={(e) => setForm({ ...form, email: e.target.value })}
-                  placeholder="name@company.com"
                 />
+                <label className="absolute left-14 top-4 text-[15px] font-medium text-slate-400 transition-all duration-300 pointer-events-none origin-left peer-focus:-translate-y-2.5 peer-focus:scale-[0.8] peer-focus:text-emerald-500 peer-focus:font-bold peer-[:not(:placeholder-shown)]:-translate-y-2.5 peer-[:not(:placeholder-shown)]:scale-[0.8] peer-[:not(:placeholder-shown)]:font-bold">
+                  Email
+                </label>
               </div>
 
-              <div>
-                <label className="block text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                  {isId ? "No. Telepon" : "Phone Number"}
-                </label>
+              {/* INTERACTIVE INPUT: PHONE */}
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-6 pointer-events-none text-slate-400 group-focus-within:text-emerald-500 transition-colors">
+                  <Phone className="w-[22px] h-[22px]" />
+                </div>
                 <input
                   type="tel"
-                  className="w-full px-5 py-4 rounded-2xl border border-slate-200 bg-slate-50/50 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 font-medium text-[15px] text-slate-800 transition-all duration-300"
+                  placeholder=" "
+                  className="peer w-full pl-14 pr-6 pt-7 pb-3 rounded-2xl border border-slate-200 bg-slate-50/50 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 font-medium text-[15px] text-slate-800 transition-all duration-300"
                   value={form.phone_number}
                   onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
-                  placeholder="+62..."
                 />
+                <label className="absolute left-14 top-4 text-[15px] font-medium text-slate-400 transition-all duration-300 pointer-events-none origin-left peer-focus:-translate-y-2.5 peer-focus:scale-[0.8] peer-focus:text-emerald-500 peer-focus:font-bold peer-[:not(:placeholder-shown)]:-translate-y-2.5 peer-[:not(:placeholder-shown)]:scale-[0.8] peer-[:not(:placeholder-shown)]:font-bold">
+                  {isId ? "No. Telepon" : "Phone Number"}
+                </label>
               </div>
 
-              <div className="relative">
-                <label className="block text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-2">
+              {/* INTERACTIVE INPUT: DROPDOWN ROLE */}
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-6 pointer-events-none text-slate-400 group-hover:text-emerald-500 transition-colors">
+                  <ShieldCheck className="w-[22px] h-[22px]" />
+                </div>
+                <div
+                  onClick={() => setRoleOpen(!roleOpen)}
+                  className="w-full pl-14 pr-6 pt-7 pb-3 rounded-2xl border border-slate-200 bg-slate-50/50 cursor-pointer flex justify-between items-center transition-all duration-300 hover:border-emerald-400 hover:bg-white select-none group-hover:ring-4 group-hover:ring-emerald-500/10"
+                >
+                  <span className="font-medium text-[15px] text-slate-800">
+                    {roleOptions.find((o) => o.value === form.role)?.label || "Select Role"}
+                  </span>
+                  <ChevronDown
+                    className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${
+                      roleOpen ? "rotate-180 text-emerald-500" : "group-hover:text-emerald-500"
+                    }`}
+                  />
+                </div>
+                {/* Label statis mengecil karena dropdown selalu ada isinya */}
+                <label className="absolute left-14 top-4 -translate-y-2.5 scale-[0.8] text-[15px] font-bold text-slate-400 transition-all duration-300 pointer-events-none origin-left group-hover:text-emerald-500">
                   {isId ? "Hak Akses / Role" : "System Role"}
                 </label>
-                <div 
-                  onClick={() => setRoleOpen(!roleOpen)}
-                  className="w-full px-5 py-4 rounded-2xl border border-slate-200 bg-slate-50/50 cursor-pointer flex justify-between items-center transition-all duration-300 hover:border-emerald-400 hover:bg-white focus:ring-4 focus:ring-emerald-500/10 select-none"
-                >
-                  <span className="font-medium text-[15px] text-slate-700">
-                    {roleOptions.find(o => o.value === form.role)?.label || "Select Role"}
-                  </span>
-                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-300 ${roleOpen ? 'rotate-180' : ''}`} />
-                </div>
 
                 {roleOpen && (
                   <>
@@ -487,10 +505,10 @@ export default function AdminUsersPage() {
                             setForm({ ...form, role: opt.value });
                             setRoleOpen(false);
                           }}
-                          className={`px-5 py-3.5 text-[14px] cursor-pointer transition-colors ${
-                            form.role === opt.value 
-                              ? 'bg-emerald-50 text-emerald-700 font-medium' 
-                              : 'text-slate-600 font-normal hover:bg-slate-50 hover:text-slate-800'
+                          className={`px-5 py-3.5 text-[14.5px] cursor-pointer transition-colors ${
+                            form.role === opt.value
+                              ? "bg-emerald-50 text-emerald-700 font-bold"
+                              : "text-slate-600 font-medium hover:bg-slate-50 hover:text-slate-900"
                           }`}
                         >
                           {opt.label}
@@ -501,34 +519,34 @@ export default function AdminUsersPage() {
                 )}
               </div>
 
-              <div>
-                <label className="block text-[12px] font-bold text-slate-400 uppercase tracking-widest mb-2">
-                  {editingUser
-                    ? isId
-                      ? "Password Baru (Opsional)"
-                      : "New Password (Optional)"
-                    : "Password"}
-                </label>
+              {/* INTERACTIVE INPUT: PASSWORD */}
+              <div className="relative group">
+                <div className="absolute inset-y-0 left-0 flex items-center pl-6 pointer-events-none text-slate-400 group-focus-within:text-emerald-500 transition-colors">
+                  <Lock className="w-[22px] h-[22px]" />
+                </div>
                 <input
                   type="password"
                   required={!editingUser}
                   minLength={editingUser ? undefined : 6}
-                  className="w-full px-5 py-4 rounded-2xl border border-slate-200 bg-slate-50/50 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 font-medium text-[15px] text-slate-800 transition-all duration-300"
+                  placeholder=" "
+                  className="peer w-full pl-14 pr-6 pt-7 pb-3 rounded-2xl border border-slate-200 bg-slate-50/50 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 font-medium text-[15px] text-slate-800 transition-all duration-300"
                   value={form.password}
                   onChange={(e) => setForm({ ...form, password: e.target.value })}
-                  placeholder={
-                    editingUser
-                      ? isId
-                        ? "Kosongkan jika tidak diubah"
-                        : "Leave blank to keep current"
-                      : "Min. 6 characters"
-                  }
                 />
+                <label className="absolute left-14 top-4 text-[15px] font-medium text-slate-400 transition-all duration-300 pointer-events-none origin-left peer-focus:-translate-y-2.5 peer-focus:scale-[0.8] peer-focus:text-emerald-500 peer-focus:font-bold peer-[:not(:placeholder-shown)]:-translate-y-2.5 peer-[:not(:placeholder-shown)]:scale-[0.8] peer-[:not(:placeholder-shown)]:font-bold">
+                  {editingUser ? (isId ? "Password Baru" : "New Password") : "Password"}
+                </label>
+                
+                {/* Bantuan teks di bawah input jika sedang dalam mode Edit */}
+                {editingUser && (
+                  <p className="absolute -bottom-6 left-2 text-[12px] font-medium text-amber-500/80">
+                    * {isId ? "Kosongkan jika tidak ingin merubah sandi." : "Leave blank to keep current password."}
+                  </p>
+                )}
               </div>
-
             </div>
 
-            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-8 mt-4">
+            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-10">
               <button
                 type="button"
                 onClick={closeForm}
@@ -575,7 +593,7 @@ export default function AdminUsersPage() {
                 onClick={() => setFilterRole(tab.id)}
                 className={`px-6 py-2.5 rounded-xl text-[13.5px] font-bold transition-all duration-300 ease-out active:scale-95 ${
                   filterRole === tab.id
-                    ? "bg-white text-slate-800 shadow-sm border border-slate-200/80 scale-100"
+                    ? "bg-white text-slate-800 shadow-sm border border-slate-200/80"
                     : "text-slate-500 border border-transparent hover:text-slate-700 hover:bg-slate-200/60"
                 }`}
               >
@@ -587,7 +605,7 @@ export default function AdminUsersPage() {
       )}
 
       {users.length === 0 && !error && !loading ? (
-        <div className="bg-white border border-slate-200 rounded-[2.5rem] py-24 text-center shadow-sm animate-in fade-in duration-500">
+        <div className="bg-white border border-slate-200 rounded-[2.5rem] py-24 text-center shadow-sm">
           <div className="w-24 h-24 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
             <Users className="w-12 h-12 text-slate-300" />
           </div>
@@ -599,7 +617,7 @@ export default function AdminUsersPage() {
           </p>
         </div>
       ) : processedUsers.length === 0 && !loading ? (
-        <div className="bg-white border border-slate-200 rounded-[2.5rem] py-24 text-center shadow-sm animate-in fade-in duration-500">
+        <div className="bg-white border border-slate-200 rounded-[2.5rem] py-24 text-center shadow-sm">
           <div className="w-20 h-20 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
             <Filter className="w-8 h-8 text-slate-300" />
           </div>
@@ -647,10 +665,7 @@ export default function AdminUsersPage() {
                   </div>
 
                   <div className="mb-8 flex-1 flex flex-col gap-1">
-                    <h3
-                      className="text-[17px] font-extrabold text-slate-800 truncate mb-0.5"
-                      title={user.full_name}
-                    >
+                    <h3 className="text-[17px] font-extrabold text-slate-800 truncate" title={user.full_name}>
                       {user.full_name}
                     </h3>
                     <p className="text-[14px] text-slate-600 font-semibold truncate" title={user.email}>

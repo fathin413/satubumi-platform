@@ -16,6 +16,7 @@ import {
   Info,
   Briefcase,
   type LucideIcon,
+  Newspaper,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -98,6 +99,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           label: isId ? "Halaman Services" : "Services Page",
           icon: Briefcase,
         },
+        { href: `/${lang}/admin/insights`, label: "Insights", icon: Newspaper },
       ],
     },
     {

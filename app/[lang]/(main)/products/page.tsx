@@ -111,6 +111,9 @@ export default function ProductsPage() {
   const [duration, setDuration] = useState("30");
   const [carbonPrice, setCarbonPrice] = useState("10");
 
+  const [latitude, setLatitude] = useState("");
+  const [longitude, setLongitude] = useState("");
+
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -219,7 +222,7 @@ export default function ProductsPage() {
           signal: controller.signal,
         });
       } else {
-        response = await fetch(`${API_URL}/rapid-fs/calculate`, {
+                response = await fetch(`${API_URL}/rapid-fs/calculate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -228,6 +231,12 @@ export default function ProductsPage() {
             ecosystem_type: ecosystemType,
             project_duration_years: parseInt(duration) || 30,
             carbon_price_usd: parseFloat(carbonPrice) || 10,
+            ...(latitude.trim() !== "" && !Number.isNaN(parseFloat(latitude))
+              ? { latitude: parseFloat(latitude) }
+              : {}),
+            ...(longitude.trim() !== "" && !Number.isNaN(parseFloat(longitude))
+              ? { longitude: parseFloat(longitude) }
+              : {}),
           }),
           signal: controller.signal,
         });
@@ -881,50 +890,81 @@ export default function ProductsPage() {
                   )}
 
                   {mode === "manual" && (
-                    <div className="space-y-6">
-                      <div className="space-y-2">
-                        <label className="block text-[12px] font-bold text-emerald-900/70 uppercase tracking-widest">
-                          {t.location_name}
-                        </label>
-                        <input
-                          type="text"
-                          className="w-full px-5 py-4 rounded-2xl border border-emerald-100 bg-slate-50 outline-none font-medium text-emerald-950 text-[14px] focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all"
-                          value={locationName}
-                          onChange={(e) => setLocationName(e.target.value)}
-                          placeholder="e.g., Alpha Carbon Project"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <label className="block text-[12px] font-bold text-emerald-900/70 uppercase tracking-widest">
-                          {t.ecosystem_type}
-                        </label>
-                        <select
-                          className="w-full px-5 py-4 rounded-2xl border border-emerald-100 bg-slate-50 outline-none font-medium text-emerald-950 text-[14px] appearance-none cursor-pointer focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all"
-                          value={ecosystemType}
-                          onChange={(e) => setEcosystemType(e.target.value)}
-                        >
-                          {ecosystemOptions.map((opt) => (
-                            <option key={opt.value} value={opt.value}>
-                              {opt.label}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                      <div className="space-y-2">
-                        <label className="block text-[12px] font-bold text-emerald-900/70 uppercase tracking-widest flex justify-between">
-                          <span>{t.area_size} (Ha)</span>
-                          <span className="text-emerald-500">*</span>
-                        </label>
-                        <input
-                          type="number"
-                          required
-                          min="1"
-                          className="w-full px-5 py-4 rounded-2xl border border-emerald-100 bg-slate-50 outline-none font-medium text-emerald-950 text-[14px] focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all"
-                          value={area}
-                          onChange={(e) => setArea(e.target.value)}
-                          placeholder="e.g., 50000"
-                        />
-                      </div>
+  <div className="space-y-6">
+    <div className="space-y-2">
+      <label className="block text-[12px] font-bold text-emerald-900/70 uppercase tracking-widest">
+        {t.location_name}
+      </label>
+      <input
+        type="text"
+        className="w-full px-5 py-4 rounded-2xl border border-emerald-100 bg-slate-50 outline-none font-medium text-emerald-950 text-[14px] focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all"
+        value={locationName}
+        onChange={(e) => setLocationName(e.target.value)}
+        placeholder="e.g., Alpha Carbon Project"
+      />
+    </div>
+
+    <div className="space-y-2">
+      <label className="block text-[12px] font-bold text-emerald-900/70 uppercase tracking-widest">
+        {t.ecosystem_type}
+      </label>
+      <select
+        className="w-full px-5 py-4 rounded-2xl border border-emerald-100 bg-slate-50 outline-none font-medium text-emerald-950 text-[14px] appearance-none cursor-pointer focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all"
+        value={ecosystemType}
+        onChange={(e) => setEcosystemType(e.target.value)}
+      >
+        {ecosystemOptions.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </div>
+
+    <div className="grid grid-cols-2 gap-4">
+      <div className="space-y-2">
+        <label className="block text-[12px] font-bold text-emerald-900/70 uppercase tracking-widest">
+          Latitude
+        </label>
+        <input
+          type="number"
+          step="any"
+          className="w-full px-5 py-4 rounded-2xl border border-emerald-100 bg-slate-50 outline-none font-medium text-emerald-950 text-[14px] focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all"
+          value={latitude}
+          onChange={(e) => setLatitude(e.target.value)}
+          placeholder="-2.5"
+        />
+      </div>
+      <div className="space-y-2">
+        <label className="block text-[12px] font-bold text-emerald-900/70 uppercase tracking-widest">
+          Longitude
+        </label>
+        <input
+          type="number"
+          step="any"
+          className="w-full px-5 py-4 rounded-2xl border border-emerald-100 bg-slate-50 outline-none font-medium text-emerald-950 text-[14px] focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all"
+          value={longitude}
+          onChange={(e) => setLongitude(e.target.value)}
+          placeholder="113.5"
+        />
+      </div>
+    </div>
+
+    <div className="space-y-2">
+      <label className="block text-[12px] font-bold text-emerald-900/70 uppercase tracking-widest flex justify-between">
+        <span>{t.area_size} (Ha)</span>
+        <span className="text-emerald-500">*</span>
+      </label>
+      <input
+        type="number"
+        required
+        min="1"
+        className="w-full px-5 py-4 rounded-2xl border border-emerald-100 bg-slate-50 outline-none font-medium text-emerald-950 text-[14px] focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 transition-all"
+        value={area}
+        onChange={(e) => setArea(e.target.value)}
+        placeholder="e.g., 50000"
+      />
+    </div>
                       <div className="p-5 rounded-2xl border border-emerald-100 bg-white shadow-sm space-y-6 transition-all duration-300 hover:shadow-md">
                         <div className="space-y-3">
                           <div className="flex items-center justify-between">
@@ -1005,7 +1045,7 @@ export default function ProductsPage() {
                 <div className="flex flex-wrap items-center justify-between gap-4 pb-6 border-b border-emerald-50">
                   <div>
                     <p className="text-[11px] font-bold tracking-widest uppercase text-emerald-900/40 mb-1">
-                      {t.score_label}
+                      {isId ? "Skor kelayakan indikatif (ICPFS)" : "Indicative score (ICPFS)"}
                     </p>
                     <div className="flex items-baseline gap-1.5">
                       <span className="text-6xl md:text-7xl font-extrabold text-transparent bg-clip-text bg-gradient-to-br from-emerald-500 to-cyan-600 leading-none">
@@ -1019,20 +1059,142 @@ export default function ProductsPage() {
                   </span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
-                  <Metric label="Carbon Stock" value={`${formatNumber(results.co2e_ton)}`} unit="t" />
+                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
+                  <Metric label="AGB" value={formatNumber(results.agb_ton)} unit="t" />
                   <Metric
-                    label="Total Credits"
-                    value={`${formatNumber(results.acc_total_credits)}`}
+                    label={isId ? "Cadangan karbon" : "Carbon stock"}
+                    value={formatNumber(results.carbon_stock_tc)}
+                    unit="tC"
+                  />
+                  <Metric label="CO₂e" value={formatNumber(results.co2e_ton)} unit="t" />
+                  <Metric
+                    label={isId ? "Kredit (ACC)" : "Total credits"}
+                    value={formatNumber(results.acc_total_credits)}
                     unit="t"
                   />
                   <Metric label="Gross Revenue" value={formatCurrency(results.gross_revenue_usd)} />
+                  <Metric
+                    label={isId ? "Total biaya" : "Total cost"}
+                    value={formatCurrency(
+                      results.cost_breakdown?.total_cost_usd ?? results.total_cost_usd
+                    )}
+                  />
                   <Metric
                     label="Net Revenue"
                     value={formatCurrency(results.net_revenue_usd)}
                     highlight
                   />
                 </div>
+
+                                {results.component_scores && (
+                  <div className="p-6 md:p-8 bg-emerald-50/50 rounded-[1.5rem] border border-emerald-100">
+                    <p className="text-[11px] font-bold text-emerald-900/70 uppercase tracking-widest mb-5">
+                      {isId ? "Komponen skor" : "Score components"}
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+                      {[
+                        { k: "carbon_score", l: isId ? "Karbon" : "Carbon" },
+                        { k: "legality_score", l: isId ? "Legal" : "Legal" },
+                        { k: "biodiversity_score", l: isId ? "Bio" : "Bio" },
+                        { k: "social_score", l: isId ? "Sosial" : "Social" },
+                        { k: "economy_score", l: isId ? "Ekonomi" : "Economy" },
+                      ].map((c) => (
+                        <div
+                          key={c.k}
+                          className="p-4 rounded-[1.25rem] bg-white border border-emerald-100/60 text-center"
+                        >
+                          <p className="text-[10px] font-bold tracking-widest uppercase text-emerald-900/40 mb-1">
+                            {c.l}
+                          </p>
+                          <p className="text-xl font-extrabold text-emerald-950">
+                            {Number(results.component_scores[c.k] ?? 0).toFixed(0)}
+                          </p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {results.cost_breakdown && (
+                  <div className="p-6 md:p-8 bg-emerald-50/50 rounded-[1.5rem] border border-emerald-100">
+                    <p className="text-[11px] font-bold text-emerald-900/70 uppercase tracking-widest mb-5">
+                      {isId ? "Rincian biaya" : "Cost breakdown"}
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <Metric
+                        label={isId ? "Pengembangan" : "Development"}
+                        value={formatCurrency(results.cost_breakdown.development_cost_usd)}
+                      />
+                      <Metric
+                        label="MRV"
+                        value={formatCurrency(results.cost_breakdown.mrv_cost_usd)}
+                      />
+                      <Metric
+                        label={isId ? "Validasi" : "Validation"}
+                        value={formatCurrency(results.cost_breakdown.validation_cost_usd)}
+                      />
+                      <Metric
+                        label={isId ? "Operasional" : "Operational"}
+                        value={formatCurrency(results.cost_breakdown.operational_cost_usd)}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {results.spatial_overlay_layers &&
+                  typeof results.spatial_overlay_layers === "object" &&
+                  Object.keys(results.spatial_overlay_layers).length > 0 && (
+                    <div className="p-6 md:p-8 bg-emerald-50/50 rounded-[1.5rem] border border-emerald-100">
+                      <p className="text-[11px] font-bold text-emerald-900/70 uppercase tracking-widest mb-5">
+                        {isId ? "Lapisan overlay spasial" : "Spatial overlay layers"}
+                      </p>
+                            <ul className="space-y-3">
+        {Object.entries(results.spatial_overlay_layers).map(([key, val]) => {
+          const label = key.replace(/_/g, " ");
+          let displayValue = "—";
+          let fungsi = "";
+
+          if (val != null && typeof val === "object" && !Array.isArray(val)) {
+            const obj = val as { value?: unknown; fungsi?: string };
+            if (obj.value !== undefined && obj.value !== null) {
+              displayValue =
+                typeof obj.value === "boolean"
+                  ? obj.value
+                    ? isId
+                      ? "Ya"
+                      : "Yes"
+                    : isId
+                    ? "Tidak"
+                    : "No"
+                  : String(obj.value);
+            }
+            if (obj.fungsi) fungsi = String(obj.fungsi);
+          } else if (val != null) {
+            displayValue = String(val);
+          }
+
+          return (
+            <li
+              key={key}
+              className="text-[14px] text-emerald-900/80 font-medium flex flex-col gap-1 sm:flex-row sm:items-start sm:justify-between"
+            >
+              <span className="capitalize text-emerald-900/60 shrink-0">
+                {label}
+              </span>
+              <span className="text-left sm:text-right font-semibold text-emerald-950">
+                {displayValue}
+                {fungsi ? (
+                  <span className="block text-[12px] font-medium text-emerald-900/50 mt-0.5">
+                    {fungsi}
+                  </span>
+                ) : null}
+              </span>
+            </li>
+          );
+        })}
+      </ul>
+                    </div>
+                  )}
 
                 <div className="grid md:grid-cols-2 gap-6 md:gap-8 items-stretch">
                   {results.geometry && (

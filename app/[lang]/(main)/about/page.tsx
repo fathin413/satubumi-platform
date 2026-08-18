@@ -100,6 +100,7 @@ function ArticleBody({ content }: { content: string }) {
 export default function AboutPage() {
   const params = useParams();
   const lang = (params?.lang as string) || "en";
+  const isId = lang === "id";
   const dict = lang === "id" ? id : en;
   const t = (dict as any).about;
 
@@ -111,7 +112,7 @@ export default function AboutPage() {
     setMounted(true);
   }, []);
 
-    useEffect(() => {
+  useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
@@ -150,7 +151,6 @@ export default function AboutPage() {
   const gallery2 = bySlug("about-gallery-2");
   const gallery3 = bySlug("about-gallery-3");
 
-  // 5 gambar yang bisa diubah dari Admin
   const heroBg = resolveImageUrl(hero?.image_url) || FALLBACK_HERO;
   const bodyImage = resolveImageUrl(body?.image_url) || FALLBACK_BODY;
   const galleryImages = [
@@ -180,8 +180,7 @@ export default function AboutPage() {
 
   return (
     <main className="bg-emerald-50/40 min-h-screen selection:bg-emerald-200 selection:text-emerald-900 font-sans">
-      
-      {/* HERO — gambar 1: about-hero */}
+      {/* HERO */}
       <section className="relative min-h-[70vh] md:min-h-[78vh] flex items-center justify-center overflow-hidden">
         <img
           src={heroBg}
@@ -201,7 +200,9 @@ export default function AboutPage() {
                 <p
                   key={i}
                   className={`text-white/95 font-medium drop-shadow-sm ${
-                    i === 0 ? "text-lg md:text-xl" : "text-base md:text-lg text-white/85"
+                    i === 0
+                      ? "text-lg md:text-xl"
+                      : "text-base md:text-lg text-white/85"
                   }`}
                 >
                   {line}
@@ -212,7 +213,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* BODY — gambar 2: about-body */}
+      {/* BODY */}
       <section className="relative z-10 bg-emerald-50/40 px-6 pb-16 md:pb-24 -mt-4">
         <div className="max-w-[1200px] mx-auto">
           <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
@@ -246,7 +247,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* GALERI — gambar 3,4,5: about-gallery-1/2/3 */}
+      {/* GALERI */}
       <section className="px-6 pb-16 md:pb-24 bg-emerald-50/40">
         <div className="max-w-[1200px] mx-auto grid grid-cols-1 sm:grid-cols-3 gap-5 md:gap-6">
           {galleryImages.map((src, i) => (
@@ -263,50 +264,71 @@ export default function AboutPage() {
         </div>
       </section>
 
-      {/* VISI & MISI */}
-      <section className="px-6 pb-24 md:pb-32 bg-emerald-50/40">
-        <div className="max-w-[1200px] mx-auto grid md:grid-cols-2 gap-12 md:gap-20">
-          <ScrollReveal>
-            <div>
-              <h3 className="text-2xl md:text-3xl font-extrabold text-emerald-950 tracking-tight mb-5">
-                {vision?.title || t?.vision_label || (lang === "id" ? "Visi" : "Vision")}
-              </h3>
-              <div className="text-slate-600 text-base md:text-lg font-medium leading-relaxed">
-                {vision?.content ? (
-                  isHtmlContent(vision.content) ? (
-                    <div
-                      className="prose prose-emerald max-w-none prose-p:my-0"
-                      dangerouslySetInnerHTML={{ __html: vision.content }}
-                    />
-                  ) : (
-                    <p>{vision.content}</p>
-                  )
-                ) : (
-                  <p>{t?.vision}</p>
-                )}
-              </div>
-            </div>
-          </ScrollReveal>
+      {/* VISI — panel hijau */}
+<section className="w-full bg-emerald-950 relative z-20 py-14 md:py-18 overflow-hidden">
+  <div className="absolute top-0 left-1/2 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
 
-          <ScrollReveal delay="delay-200">
-            <div>
-              <h3 className="text-2xl md:text-3xl font-extrabold text-emerald-950 tracking-tight mb-5">
-                {mission?.title || t?.mission_label || (lang === "id" ? "Misi" : "Mission")}
-              </h3>
-              <ul className="space-y-3.5">
-                {missionItems.map((item: string, index: number) => (
-                  <li key={index} className="flex items-start gap-3">
-                    <span className="mt-2 w-1.5 h-1.5 rounded-full bg-emerald-600 shrink-0" />
-                    <span className="text-slate-600 text-base md:text-lg font-medium leading-relaxed">
-                      {item}
-                    </span>
-                  </li>
-                ))}
-              </ul>
+  <div className="max-w-[1100px] mx-auto px-6 relative z-10">
+    <ScrollReveal>
+      <h3 className="text-emerald-400 font-extrabold tracking-tight text-3xl md:text-4xl lg:text-5xl mb-5 md:mb-6">
+        {vision?.title ||
+          t?.vision_label ||
+          (isId ? "Visi Perusahaan" : "Our Vision")}
+      </h3>
+
+      <div className="text-2xl md:text-3xl lg:text-[2.15rem] font-medium text-white leading-[1.45] tracking-tight">
+        {vision?.content ? (
+          isHtmlContent(vision.content) ? (
+            <div
+              className="prose prose-invert max-w-none prose-p:my-0 prose-p:text-2xl md:prose-p:text-3xl prose-p:leading-[1.45] prose-strong:text-emerald-300"
+              dangerouslySetInnerHTML={{ __html: vision.content }}
+            />
+          ) : (
+            <div className="space-y-3">
+              {vision.content.split("\n").map((paragraph, idx) =>
+                paragraph.trim() ? <p key={idx}>{paragraph}</p> : null
+              )}
             </div>
-          </ScrollReveal>
-        </div>
-      </section>
+          )
+        ) : (
+          <p>&ldquo;{t?.vision}&rdquo;</p>
+        )}
+      </div>
+    </ScrollReveal>
+  </div>
+</section>
+
+{/* MISI — nomor bulat kiri, teks rata kanan */}
+<section className="w-full bg-white relative z-20 py-12 md:py-16 border-b border-emerald-100/60">
+  <div className="max-w-[1000px] mx-auto px-6">
+    <ScrollReveal>
+      <h3 className="text-emerald-800 font-extrabold tracking-tight text-3xl md:text-4xl lg:text-5xl border-r-4 border-emerald-600 pr-4 md:pr-5 mb-6 md:mb-8 text-right">
+        {mission?.title ||
+          t?.mission_label ||
+          (isId ? "Misi Kami" : "Our Mission")}
+      </h3>
+
+      <div className="space-y-0">
+        {missionItems.map((item: string, index: number) => (
+          <div
+            key={index}
+            className="group flex items-start gap-4 md:gap-8 py-4 md:py-5 border-b border-emerald-100 last:border-b-0"
+          >
+            {/* Frame bulat nomor — kiri */}
+            <span className="flex items-center justify-center w-10 h-10 md:w-11 md:h-11 shrink-0 rounded-full border-2 border-emerald-600 text-emerald-700 font-extrabold text-sm md:text-base tabular-nums">
+              {String(index + 1).padStart(2, "0")}
+            </span>
+
+            {/* Teks — kanan */}
+            <p className="flex-1 text-emerald-950 text-lg md:text-xl font-medium leading-snug text-right group-hover:text-emerald-900 transition-colors pt-1.5">
+              {item}
+            </p>
+          </div>
+        ))}
+      </div>
+    </ScrollReveal>
+  </div>
+</section>
     </main>
   );
 }

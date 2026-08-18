@@ -2,7 +2,20 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { ImagePlus, Plus, Trash2, Save, LayoutTemplate, FileText, Images, Eye, Target, ShieldCheck, AlertCircle, CheckCircle2 } from "lucide-react";
+import {
+  ImagePlus,
+  Plus,
+  Trash2,
+  Save,
+  LayoutTemplate,
+  FileText,
+  Images,
+  Eye,
+  Target,
+  ShieldCheck,
+  AlertTriangle,
+  CheckCircle2,
+} from "lucide-react";
 import ImageCropModal from "@/components/ImageCropModal";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 
@@ -23,8 +36,10 @@ type Article = {
   id: number;
   category: string;
   title: string;
+  title_en?: string | null;
   slug: string;
   content: string;
+  content_en?: string | null;
   status: string;
   image_url?: string | null;
 };
@@ -108,6 +123,15 @@ export default function AdminAboutPage() {
   const [missionTitle, setMissionTitle] = useState("");
   const [missionItems, setMissionItems] = useState<string[]>([""]);
 
+  const [heroTitleEn, setHeroTitleEn] = useState("");
+  const [heroLabelEn, setHeroLabelEn] = useState("");
+  const [bodyTitleEn, setBodyTitleEn] = useState("");
+  const [bodyContentEn, setBodyContentEn] = useState("");
+  const [visionTitleEn, setVisionTitleEn] = useState("");
+  const [visionContentEn, setVisionContentEn] = useState("");
+  const [missionTitleEn, setMissionTitleEn] = useState("");
+  const [missionItemsEn, setMissionItemsEn] = useState<string[]>([""]);
+
   const [heroImg, setHeroImg] = useState<ImgSlot>({ preview: null, file: null });
   const [bodyImg, setBodyImg] = useState<ImgSlot>({ preview: null, file: null });
   const [g1, setG1] = useState<ImgSlot>({ preview: null, file: null });
@@ -116,14 +140,28 @@ export default function AdminAboutPage() {
 
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [cropTarget, setCropTarget] = useState<CropTarget | null>(null);
-  const [deletingImg, setDeletingImg] = useState<string | null>(null);
+  const [deletingImg, setDeletingImg] = useState<IdKey | null>(null);
+
+  // State untuk mengontrol pop-up konfirmasi hapus gambar custom
+  const [deleteConfirm, setDeleteConfirm] = useState<{ key: IdKey; onClear: () => void } | null>(null);
 
   const token = () => localStorage.getItem("access_token");
+
+  // Auto-dismiss popup modal (Hanya dismiss jika tidak ada popup deleteConfirm yang aktif)
+  useEffect(() => {
+    if (success || (error && !deleteConfirm)) {
+      const timer = setTimeout(() => {
+        setSuccess(null);
+        if (!deleteConfirm) setError(null);
+      }, 5000);
+      return () => clearTimeout(timer);
+    }
+  }, [success, error, deleteConfirm]);
 
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`${API_URL}/articles/`);
+        const res = await fetch(`${API_URL}/articles/?lang=id`);
         if (!res.ok) throw new Error("Failed to load");
         const data = await res.json();
         const list: Article[] = Array.isArray(data) ? data : [];
@@ -150,6 +188,7 @@ export default function AdminAboutPage() {
 
         if (hero) {
           setHeroTitle(hero.title || "");
+          setHeroTitleEn(hero.title_en || "");
           setHeroLabel(
             hero.content
               ? isHtml(hero.content)
@@ -157,15 +196,25 @@ export default function AdminAboutPage() {
                 : hero.content
               : ""
           );
+          setHeroLabelEn(
+            hero.content_en
+              ? isHtml(hero.content_en)
+                ? stripHtml(hero.content_en)
+                : hero.content_en
+              : ""
+          );
           setHeroImg({ preview: resolveImageUrl(hero.image_url), file: null });
         }
         if (body) {
           setBodyTitle(body.title || "");
+          setBodyTitleEn(body.title_en || "");
           setBodyContent(body.content || "");
+          setBodyContentEn(body.content_en || "");
           setBodyImg({ preview: resolveImageUrl(body.image_url), file: null });
         }
         if (vision) {
           setVisionTitle(vision.title || "");
+          setVisionTitleEn(vision.title_en || "");
           setVisionContent(
             vision.content
               ? isHtml(vision.content)
@@ -173,10 +222,19 @@ export default function AdminAboutPage() {
                 : vision.content
               : ""
           );
+          setVisionContentEn(
+            vision.content_en
+              ? isHtml(vision.content_en)
+                ? stripHtml(vision.content_en)
+                : vision.content_en
+              : ""
+          );
         }
         if (mission) {
           setMissionTitle(mission.title || "");
+          setMissionTitleEn(mission.title_en || "");
           setMissionItems(parseList(mission.content || ""));
+          setMissionItemsEn(parseList(mission.content_en || ""));
         }
         if (gallery1) setG1({ preview: resolveImageUrl(gallery1.image_url), file: null });
         if (gallery2) setG2({ preview: resolveImageUrl(gallery2.image_url), file: null });
@@ -192,15 +250,23 @@ export default function AdminAboutPage() {
 
   const upsert = async (
     key: IdKey,
-    payload: { title: string; content: string; slug: string }
+    payload: {
+      title: string;
+      title_en?: string;
+      content: string;
+      content_en?: string;
+      slug: string;
+    }
   ) => {
     const t = token();
     const existingId = ids[key];
     const body = {
       category: "about",
       title: payload.title,
+      title_en: payload.title_en || null,
       slug: payload.slug,
       content: payload.content || "-",
+      content_en: payload.content_en || null,
       status: "published",
       author: "Satubumi Team",
     };
@@ -243,42 +309,53 @@ export default function AdminAboutPage() {
     if (!res.ok) throw new Error(isId ? "Upload gambar gagal" : "Image upload failed");
   };
 
-  const handleDeleteImage = async (
-    key: IdKey,
-    clearSlot: () => void
-  ) => {
+  // Memicu pop-up kustom (bukan alert bawaan browser)
+  const promptDeleteImage = (key: IdKey, onClear: () => void) => {
     const articleId = ids[key];
     if (!articleId) {
-      // Belum tersimpan di server — cukup clear lokal
-      clearSlot();
+      // Jika belum disave di DB, cukup hapus preview lokasinya saja
+      onClear();
       return;
     }
-    if (
-      !confirm(
-        isId ? "Hapus gambar ini dari server?" : "Delete this image from server?"
-      )
-    ) {
-      return;
-    }
+    setDeleteConfirm({ key, onClear });
+    setError(null);
+  };
+
+  // Menjalankan proses hapus dari server
+  const executeDeleteImage = async () => {
+    if (!deleteConfirm) return;
+    const { key, onClear } = deleteConfirm;
+    const articleId = ids[key];
 
     setDeletingImg(key);
     setError(null);
     try {
+      const t = token();
+      if (!t) throw new Error(isId ? "Silakan login ulang" : "Please sign in again");
+
       const res = await fetch(`${API_URL}/articles/${articleId}/image`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token()}` },
+        headers: { Authorization: `Bearer ${t}` },
       });
+
       if (!res.ok) {
-        throw new Error(isId ? "Gagal menghapus gambar" : "Failed to delete image");
+        const data = await res.json().catch(() => ({}));
+        const msg =
+          typeof data.detail === "string"
+            ? data.detail
+            : isId
+            ? "Gagal menghapus gambar"
+            : "Failed to delete image";
+        throw new Error(msg);
       }
-      clearSlot();
-      setSuccess(isId ? "Gambar dihapus" : "Image deleted");
-      
-      setTimeout(() => setSuccess(null), 3000);
+
+      onClear();
+      setSuccess(isId ? "Gambar berhasil dihapus!" : "Image successfully deleted!");
     } catch (err: any) {
-      setError(err.message);
+      setError(err.message || "Error");
     } finally {
       setDeletingImg(null);
+      setDeleteConfirm(null);
     }
   };
 
@@ -289,27 +366,35 @@ export default function AdminAboutPage() {
     try {
       const heroSaved = await upsert("hero", {
         title: heroTitle || "About",
+        title_en: heroTitleEn,
         content: heroLabel || "",
+        content_en: heroLabelEn,
         slug: SLUGS.hero,
       });
       if (heroImg.file) await uploadImage(heroSaved.id, heroImg.file);
 
       const bodySaved = await upsert("body", {
         title: bodyTitle || "Satubumi",
+        title_en: bodyTitleEn,
         content: bodyContent || "",
+        content_en: bodyContentEn,
         slug: SLUGS.body,
       });
       if (bodyImg.file) await uploadImage(bodySaved.id, bodyImg.file);
 
       await upsert("vision", {
         title: visionTitle || (isId ? "Visi" : "Vision"),
+        title_en: visionTitleEn || "Vision",
         content: visionContent || "",
+        content_en: visionContentEn,
         slug: SLUGS.vision,
       });
 
       await upsert("mission", {
         title: missionTitle || (isId ? "Misi" : "Mission"),
+        title_en: missionTitleEn || "Mission",
         content: listToHtml(missionItems),
+        content_en: listToHtml(missionItemsEn),
         slug: SLUGS.mission,
       });
 
@@ -341,11 +426,9 @@ export default function AdminAboutPage() {
       setG3((p) => ({ ...p, file: null }));
 
       setSuccess(isId ? "Semua perubahan berhasil disimpan!" : "All changes saved successfully!");
-      
-      setTimeout(() => setSuccess(null), 3000);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: any) {
-      setError(err.message || "Error");
+      setError(err.message || "Error occurred during save");
     } finally {
       setSaving(false);
     }
@@ -361,7 +444,6 @@ export default function AdminAboutPage() {
 
   const cropAspect = cropTarget === "hero" ? 16 / 9 : 4 / 3;
 
-  // Komponen Helper untuk Image Field yang Estetik
   const ImageField = ({
     label,
     slot,
@@ -386,25 +468,33 @@ export default function AdminAboutPage() {
           Ratio: {ratio}
         </span>
       </div>
-      
+
       {slot.preview ? (
         <div
           className={`relative w-full rounded-2xl overflow-hidden border-4 border-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] group ${
             ratio === "4/3" ? "aspect-[4/3]" : "aspect-video"
           }`}
         >
-          <img src={slot.preview} alt="Preview" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-          
-          {/* Overlay & Delete Button */}
+          <img
+            src={slot.preview}
+            alt="Preview"
+            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105"
+          />
           <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/20 transition-colors duration-300 flex items-start justify-end p-4 opacity-0 group-hover:opacity-100">
             <button
               type="button"
               disabled={deletingImg === idKey}
-              onClick={() => handleDeleteImage(idKey, onClear)}
+              onClick={() => promptDeleteImage(idKey, onClear)}
               className="inline-flex items-center gap-2 px-4 py-2 bg-rose-600/90 backdrop-blur-md text-white text-sm font-bold rounded-xl hover:bg-rose-600 hover:scale-105 transition-all shadow-lg disabled:opacity-60"
             >
               <Trash2 className="w-4 h-4" />
-              {deletingImg === idKey ? (isId ? "Menghapus..." : "Removing...") : (isId ? "Hapus Gambar" : "Remove Image")}
+              {deletingImg === idKey
+                ? isId
+                  ? "Menghapus..."
+                  : "Removing..."
+                : isId
+                ? "Hapus Gambar"
+                : "Remove Image"}
             </button>
           </div>
         </div>
@@ -430,9 +520,6 @@ export default function AdminAboutPage() {
     </div>
   );
 
-  // =====================================
-  // LOADING STATE
-  // =====================================
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -444,14 +531,119 @@ export default function AdminAboutPage() {
     );
   }
 
-  const box = "bg-white border border-slate-200/60 rounded-[2rem] p-8 md:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.03)] space-y-6 relative overflow-hidden";
+  const box =
+    "bg-white border border-slate-200/60 rounded-[2rem] p-8 md:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.03)] space-y-6 relative overflow-hidden";
   const inputCls =
     "w-full px-5 py-4 rounded-2xl border-2 border-transparent bg-slate-50 focus:bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all font-medium text-slate-900 placeholder:text-slate-400";
 
   return (
-    <div className="max-w-4xl mx-auto pb-20 font-sans">
+    <div className="max-w-5xl mx-auto pb-20 font-sans relative">
       
-      {/* 1. STICKY ACTION BAR (Navigasi Mengambang) */}
+      {/* GLOBAL POPUP MODAL NOTIFICATION (Success / General Error) */}
+      {(error && !deleteConfirm) || success ? (
+        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden p-8 text-center relative animate-in zoom-in-[0.5] fade-in duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
+            {error ? (
+              <>
+                <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-rose-100 relative">
+                  <div className="absolute inset-0 rounded-full border-2 border-rose-200 animate-ping opacity-50 duration-1000" />
+                  <AlertTriangle className="w-10 h-10 text-rose-500 relative z-10" />
+                </div>
+                <h3 className="text-2xl font-extrabold text-slate-800 mb-2 tracking-tight">
+                  {isId ? "Terjadi Kesalahan" : "Action Failed"}
+                </h3>
+                <p className="text-[14px] text-slate-500 font-medium mb-8 leading-relaxed px-2">
+                  {error}
+                </p>
+                <button
+                  onClick={() => setError(null)}
+                  className="w-full py-4 bg-rose-50 border border-rose-100 text-rose-600 font-bold rounded-2xl hover:bg-rose-100 hover:text-rose-700 transition-all duration-300 active:scale-95"
+                >
+                  {isId ? "Tutup Modal" : "Close"}
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-100 relative">
+                  <div className="absolute inset-0 rounded-full border-2 border-emerald-200 animate-ping opacity-50 duration-1000" />
+                  <CheckCircle2 className="w-10 h-10 text-emerald-500 relative z-10" />
+                </div>
+                <h3 className="text-2xl font-extrabold text-slate-800 mb-2 tracking-tight">
+                  {isId ? "Berhasil!" : "Success!"}
+                </h3>
+                <p className="text-[14px] text-slate-500 font-medium mb-8 leading-relaxed px-2">
+                  {success}
+                </p>
+                <button
+                  onClick={() => setSuccess(null)}
+                  className="w-full py-4 bg-emerald-700 text-white font-bold rounded-2xl hover:bg-emerald-800 transition-all duration-300 shadow-md shadow-emerald-950/20 active:scale-95"
+                >
+                  {isId ? "Tutup Modal" : "Close"}
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
+
+      {/* CONFIRMATION POPUP MODAL FOR DELETING IMAGE */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden relative animate-in zoom-in-[0.5] fade-in duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
+            <div className="p-10 text-center">
+              <div className="w-20 h-20 bg-rose-50 rounded-[1.8rem] flex items-center justify-center mx-auto mb-6 border border-rose-100 relative">
+                <div className="absolute inset-0 rounded-[1.8rem] border-2 border-rose-200 animate-ping opacity-50 duration-1000" />
+                <AlertTriangle className="w-10 h-10 text-rose-500 relative z-10" />
+              </div>
+
+              <h3 className="text-2xl font-extrabold text-slate-800 mb-3 tracking-tight">
+                {isId ? "Hapus Gambar Ini?" : "Delete This Image?"}
+              </h3>
+
+              <p className="text-slate-500 text-[14.5px] mb-8 leading-relaxed px-2">
+                {isId
+                  ? "Apakah Anda yakin ingin menghapus gambar ini dari server? Tindakan ini permanen."
+                  : "Are you sure you want to delete this image from the server? This action is permanent."}
+              </p>
+
+              {error && (
+                <p className="text-[13px] text-rose-700 font-bold mb-6 bg-rose-50 p-4 rounded-xl border border-rose-200">
+                  {error}
+                </p>
+              )}
+
+              <div className="flex flex-col-reverse sm:flex-row gap-3">
+                <button
+                  onClick={() => {
+                    setDeleteConfirm(null);
+                    setError(null);
+                  }}
+                  disabled={deletingImg !== null}
+                  className="flex-1 py-4 bg-slate-50 border border-slate-200 text-slate-600 text-[14.5px] font-bold rounded-2xl hover:bg-slate-100 transition-colors disabled:opacity-50 active:scale-95"
+                >
+                  {isId ? "Batalkan" : "Cancel"}
+                </button>
+                <button
+                  onClick={executeDeleteImage}
+                  disabled={deletingImg !== null}
+                  className="flex-1 py-4 bg-rose-600 text-white text-[14.5px] font-bold rounded-2xl hover:bg-rose-700 disabled:opacity-80 flex items-center justify-center gap-2 transition-all duration-300 shadow-md shadow-rose-600/20 active:scale-95"
+                >
+                  {deletingImg !== null ? (
+                    <div className="w-5 h-5 border-2 border-rose-200 border-t-white rounded-full animate-spin" />
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4" />
+                      {isId ? "Ya, Hapus" : "Yes, Delete"}
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TOP STICKY BAR */}
       <div className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-4 p-4 md:px-8 md:py-5 mb-10 bg-white/80 backdrop-blur-2xl border-b border-slate-200/60 rounded-b-3xl md:rounded-3xl shadow-[0_10px_30px_-15px_rgba(0,0,0,0.08)] mx-[-1rem] md:mx-0 translate-y-[-1rem] md:translate-y-0">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-1 flex items-center gap-3">
@@ -460,11 +652,11 @@ export default function AdminAboutPage() {
           </h1>
           <p className="text-slate-500 font-medium text-[13px] hidden md:block">
             {isId
-              ? "Perbarui narasi visi, misi, dan galeri untuk halaman profil perusahaan."
-              : "Update vision, mission, and gallery for your company profile page."}
+              ? "Isi versi Indonesia (ID) dan English (EN). Publik memakai bahasa sesuai URL."
+              : "Fill Indonesian (ID) and English (EN). Public site uses language from the URL."}
           </p>
         </div>
-        
+
         <button
           type="button"
           onClick={handleSaveAll}
@@ -472,68 +664,63 @@ export default function AdminAboutPage() {
           className="inline-flex items-center gap-2 px-6 py-3.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-600/20 hover:-translate-y-0.5 active:scale-95 transition-all duration-300 disabled:opacity-60"
         >
           {saving ? (
-            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div>
+            <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           ) : (
             <Save className="w-4 h-4" />
           )}
-          {saving ? (isId ? "Menyimpan..." : "Saving...") : (isId ? "Simpan Semua" : "Save All Changes")}
+          {saving
+            ? isId
+              ? "Menyimpan..."
+              : "Saving..."
+            : isId
+            ? "Simpan Semua"
+            : "Save All Changes"}
         </button>
       </div>
 
-      {/* Notifications */}
-      {error && (
-        <div className="mb-8 p-5 bg-rose-50 border border-rose-200/60 rounded-2xl text-rose-700 text-[14px] font-medium flex items-start gap-3 animate-in fade-in slide-in-from-top-4">
-          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-rose-500" />
-          <span>{error}</span>
-        </div>
-      )}
-      {success && (
-        <div className="mb-8 p-5 bg-emerald-50 border border-emerald-200/60 rounded-2xl text-emerald-700 text-[14px] font-medium flex items-start gap-3 animate-in fade-in slide-in-from-top-4">
-          <CheckCircle2 className="w-5 h-5 shrink-0 mt-0.5 text-emerald-500" />
-          <span>{success}</span>
-        </div>
-      )}
-
-      {/* Konten Form */}
       <div className="space-y-8">
-        
-        {/* SECTION 1: HERO */}
+        {/* HERO */}
         <section className={box}>
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-2">
             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <LayoutTemplate className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-extrabold text-slate-900">
-                1. Hero Section
-              </h2>
-              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">slug: {SLUGS.hero}</p>
+              <h2 className="text-xl font-extrabold text-slate-900">1. Hero Section</h2>
+              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
+                slug: {SLUGS.hero}
+              </p>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
-              {isId ? "Judul Hero" : "Hero Title"}
-            </label>
-            <input
-              className={inputCls}
-              value={heroTitle}
-              onChange={(e) => setHeroTitle(e.target.value)}
-              placeholder="e.g. About Satubumi"
-            />
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                Judul Hero (ID)
+              </label>
+              <input className={inputCls} value={heroTitle} onChange={(e) => setHeroTitle(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                Hero Title (EN)
+              </label>
+              <input className={inputCls} value={heroTitleEn} onChange={(e) => setHeroTitleEn(e.target.value)} />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
-              {isId ? "Subtitle Hero" : "Hero Subtitle"}
-            </label>
-            <textarea
-              rows={2}
-              className={`${inputCls} resize-none`}
-              value={heroLabel}
-              onChange={(e) => setHeroLabel(e.target.value)}
-              placeholder={isId ? "Teks di bawah judul utama..." : "Text below main title..."}
-            />
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                Subtitle (ID)
+              </label>
+              <textarea rows={2} className={`${inputCls} resize-none`} value={heroLabel} onChange={(e) => setHeroLabel(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                Subtitle (EN)
+              </label>
+              <textarea rows={2} className={`${inputCls} resize-none`} value={heroLabelEn} onChange={(e) => setHeroLabelEn(e.target.value)} />
+            </div>
           </div>
 
           <ImageField
@@ -546,7 +733,7 @@ export default function AdminAboutPage() {
           />
         </section>
 
-        {/* SECTION 2: NARASI (BODY) */}
+        {/* BODY */}
         <section className={box}>
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-2">
             <div className="w-10 h-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
@@ -556,25 +743,43 @@ export default function AdminAboutPage() {
               <h2 className="text-xl font-extrabold text-slate-900">
                 2. {isId ? "Narasi Utama" : "Main Body Content"}
               </h2>
-              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">slug: {SLUGS.body}</p>
+              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
+                slug: {SLUGS.body}
+              </p>
             </div>
           </div>
-          
-          <div className="space-y-2">
-            <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">{isId ? "Judul Narasi" : "Body Title"}</label>
-            <input
-              className={inputCls}
-              value={bodyTitle}
-              onChange={(e) => setBodyTitle(e.target.value)}
-              placeholder={isId ? "e.g. Siapa Kami?" : "e.g. Who Are We?"}
-            />
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                Judul (ID)
+              </label>
+              <input className={inputCls} value={bodyTitle} onChange={(e) => setBodyTitle(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                Title (EN)
+              </label>
+              <input className={inputCls} value={bodyTitleEn} onChange={(e) => setBodyTitleEn(e.target.value)} />
+            </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">{isId ? "Konten Narasi" : "Body Content"}</label>
-            {/* Rich Text Editor */}
-            <div className="rounded-2xl overflow-hidden border-2 border-transparent focus-within:border-emerald-400 focus-within:ring-4 focus-within:ring-emerald-500/10 transition-all bg-slate-50">
-              <RichTextEditor value={bodyContent} onChange={setBodyContent} />
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                Konten (ID)
+              </label>
+              <div className="rounded-2xl overflow-hidden border-2 border-transparent bg-slate-50">
+                <RichTextEditor value={bodyContent} onChange={setBodyContent} />
+              </div>
+            </div>
+            <div className="space-y-2">
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                Content (EN)
+              </label>
+              <div className="rounded-2xl overflow-hidden border-2 border-transparent bg-slate-50">
+                <RichTextEditor value={bodyContentEn} onChange={setBodyContentEn} />
+              </div>
             </div>
           </div>
 
@@ -588,7 +793,7 @@ export default function AdminAboutPage() {
           />
         </section>
 
-        {/* SECTION 3: GALLERY */}
+        {/* GALLERY */}
         <section className={box}>
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-2">
             <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
@@ -598,141 +803,168 @@ export default function AdminAboutPage() {
               <h2 className="text-xl font-extrabold text-slate-900">
                 3. {isId ? "Galeri Perusahaan" : "Company Gallery"}
               </h2>
-              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">slug: {SLUGS.gallery1} - {SLUGS.gallery3}</p>
             </div>
           </div>
-
           <div className="grid sm:grid-cols-3 gap-6">
-            <ImageField
-              label={isId ? "Foto Galeri 1" : "Gallery Photo 1"}
-              slot={g1}
-              target="g1"
-              ratio="4/3"
-              idKey="gallery1"
-              onClear={() => setG1({ preview: null, file: null })}
-            />
-            <ImageField
-              label={isId ? "Foto Galeri 2" : "Gallery Photo 2"}
-              slot={g2}
-              target="g2"
-              ratio="4/3"
-              idKey="gallery2"
-              onClear={() => setG2({ preview: null, file: null })}
-            />
-            <ImageField
-              label={isId ? "Foto Galeri 3" : "Gallery Photo 3"}
-              slot={g3}
-              target="g3"
-              ratio="4/3"
-              idKey="gallery3"
-              onClear={() => setG3({ preview: null, file: null })}
-            />
+            <ImageField label="Gallery 1" slot={g1} target="g1" ratio="4/3" idKey="gallery1" onClear={() => setG1({ preview: null, file: null })} />
+            <ImageField label="Gallery 2" slot={g2} target="g2" ratio="4/3" idKey="gallery2" onClear={() => setG2({ preview: null, file: null })} />
+            <ImageField label="Gallery 3" slot={g3} target="g3" ratio="4/3" idKey="gallery3" onClear={() => setG3({ preview: null, file: null })} />
           </div>
         </section>
 
-        {/* SECTION 4: VISION */}
+        {/* VISION */}
         <section className={box}>
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-2">
             <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
               <Eye className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-extrabold text-slate-900">
-                4. {isId ? "Visi" : "Vision"}
-              </h2>
-              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">slug: {SLUGS.vision}</p>
+              <h2 className="text-xl font-extrabold text-slate-900">4. Vision</h2>
             </div>
           </div>
-
-          <div className="space-y-2">
-            <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">{isId ? "Judul Visi" : "Vision Title"}</label>
-            <input
-              className={inputCls}
-              value={visionTitle}
-              onChange={(e) => setVisionTitle(e.target.value)}
-              placeholder={isId ? "e.g. Visi Kami" : "e.g. Our Vision"}
-            />
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">Judul (ID)</label>
+              <input className={inputCls} value={visionTitle} onChange={(e) => setVisionTitle(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">Title (EN)</label>
+              <input className={inputCls} value={visionTitleEn} onChange={(e) => setVisionTitleEn(e.target.value)} />
+            </div>
           </div>
-
-          <div className="space-y-2">
-            <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">{isId ? "Pernyataan Visi" : "Vision Statement"}</label>
-            <textarea
-              rows={4}
-              className={`${inputCls} resize-none`}
-              value={visionContent}
-              onChange={(e) => setVisionContent(e.target.value)}
-              placeholder={isId ? "Tuliskan visi perusahaan di sini..." : "Write company vision here..."}
-            />
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">Visi (ID)</label>
+              <textarea rows={4} className={`${inputCls} resize-none`} value={visionContent} onChange={(e) => setVisionContent(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">Vision (EN)</label>
+              <textarea rows={4} className={`${inputCls} resize-none`} value={visionContentEn} onChange={(e) => setVisionContentEn(e.target.value)} />
+            </div>
           </div>
         </section>
 
-        {/* SECTION 5: MISSION */}
+        {/* MISSION */}
         <section className={box}>
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-2">
             <div className="w-10 h-10 rounded-xl bg-fuchsia-50 text-fuchsia-600 flex items-center justify-center">
               <Target className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-extrabold text-slate-900">
-                5. {isId ? "Misi" : "Mission"}
-              </h2>
-              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">slug: {SLUGS.mission}</p>
+              <h2 className="text-xl font-extrabold text-slate-900">5. Mission</h2>
             </div>
           </div>
 
-          <div className="space-y-2">
-            <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">{isId ? "Judul Misi" : "Mission Title"}</label>
-            <input
-              className={inputCls}
-              value={missionTitle}
-              onChange={(e) => setMissionTitle(e.target.value)}
-              placeholder={isId ? "e.g. Misi Kami" : "e.g. Our Mission"}
-            />
+          <div className="grid md:grid-cols-2 gap-4 mb-4">
+            <div className="space-y-2">
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">Judul (ID)</label>
+              <input className={inputCls} value={missionTitle} onChange={(e) => setMissionTitle(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">Title (EN)</label>
+              <input className={inputCls} value={missionTitleEn} onChange={(e) => setMissionTitleEn(e.target.value)} />
+            </div>
           </div>
 
-          <div className="space-y-3">
-            <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide mb-2">{isId ? "Daftar Misi" : "Mission List"}</label>
-            {missionItems.map((item, index) => (
-              <div key={index} className="flex gap-3 items-center">
-                <input
-                  className={inputCls}
-                  value={item}
-                  placeholder={isId ? `Poin misi ke-${index + 1}...` : `Mission point ${index + 1}...`}
-                  onChange={(e) => {
-                    const next = [...missionItems];
-                    next[index] = e.target.value;
-                    setMissionItems(next);
-                  }}
-                />
-                <button
-                  type="button"
-                  onClick={() =>
-                    setMissionItems((prev) =>
-                      prev.length <= 1 ? [""] : prev.filter((_, i) => i !== index)
-                    )
-                  }
-                  className="p-4 rounded-2xl bg-rose-50 text-rose-600 hover:bg-rose-100 hover:scale-105 active:scale-95 transition-all shadow-sm shrink-0"
-                  title={isId ? "Hapus" : "Delete"}
-                >
-                  <Trash2 className="w-5 h-5" />
-                </button>
-              </div>
-            ))}
-            <div className="pt-2">
+          <div className="grid md:grid-cols-2 gap-8">
+            <div className="space-y-3">
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                Daftar Misi (ID)
+              </label>
+              {missionItems.map((item, index) => (
+                <div key={index} className="flex gap-3 items-center">
+                  <input
+                    className={inputCls}
+                    value={item}
+                    onChange={(e) => {
+                      const next = [...missionItems];
+                      next[index] = e.target.value;
+                      setMissionItems(next);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMissionItems((prev) => (prev.length <= 1 ? [""] : prev.filter((_, i) => i !== index)))
+                    }
+                    className="p-4 rounded-2xl bg-rose-50 text-rose-600 shrink-0 hover:bg-rose-100 transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
               <button
                 type="button"
                 onClick={() => setMissionItems((p) => [...p, ""])}
                 className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-50 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors"
               >
-                <Plus className="w-4 h-4" />
-                {isId ? "Tambah Poin Misi" : "Add Mission Point"}
+                <Plus className="w-4 h-4" /> Tambah (ID)
+              </button>
+            </div>
+
+            <div className="space-y-3">
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                Mission List (EN)
+              </label>
+              {missionItemsEn.map((item, index) => (
+                <div key={index} className="flex gap-3 items-center">
+                  <input
+                    className={inputCls}
+                    value={item}
+                    onChange={(e) => {
+                      const next = [...missionItemsEn];
+                      next[index] = e.target.value;
+                      setMissionItemsEn(next);
+                    }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setMissionItemsEn((prev) =>
+                        prev.length <= 1 ? [""] : prev.filter((_, i) => i !== index)
+                      )
+                    }
+                    className="p-4 rounded-2xl bg-rose-50 text-rose-600 shrink-0 hover:bg-rose-100 transition-colors"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => setMissionItemsEn((p) => [...p, ""])}
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-50 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors"
+              >
+                <Plus className="w-4 h-4" /> Add (EN)
               </button>
             </div>
           </div>
         </section>
+
+        {/* BOTTOM SAVE BUTTON */}
+        <div className="flex justify-end pt-6 pb-12">
+          <button
+            type="button"
+            onClick={handleSaveAll}
+            disabled={saving}
+            className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-500 hover:shadow-xl hover:shadow-emerald-600/20 hover:-translate-y-1 active:scale-95 transition-all duration-300 disabled:opacity-60 text-[15px] min-w-[200px]"
+          >
+            {saving ? (
+              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            ) : (
+              <Save className="w-5 h-5" />
+            )}
+            {saving
+              ? isId
+                ? "Menyimpan..."
+                : "Saving..."
+              : isId
+              ? "Simpan Semua Perubahan"
+              : "Save All Changes"}
+          </button>
+        </div>
       </div>
 
-      {/* CROP MODAL */}
       {cropSrc && cropTarget && (
         <ImageCropModal
           imageSrc={cropSrc}

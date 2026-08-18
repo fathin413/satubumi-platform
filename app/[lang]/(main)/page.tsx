@@ -5,8 +5,7 @@ import ScrollReveal from "../../../components/ScrollReveal";
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 const BACKEND_ORIGIN = API_URL.replace(/\/api\/v1\/?$/, "");
 
-const FALLBACK_HERO =
-  "https://images.unsplash.com/photo-1511497584788-876760111969?q=80&w=2000&auto=format&fit=crop";
+const FALLBACK_HERO = "/asset.jpeg";
 const FALLBACK_CARD3 =
   "https://images.unsplash.com/photo-1542601906990-b4d3fb778b09?q=80&w=2000&auto=format&fit=crop";
 const FALLBACK_LEAF =
@@ -45,9 +44,10 @@ function plainText(content: string) {
   return content.trim();
 }
 
-async function getHomeArticles(): Promise<Article[]> {
+async function getHomeArticles(lang: string): Promise<Article[]> {
   try {
-    const res = await fetch(`${API_URL}/articles/`, {
+    const apiLang = lang === "en" ? "en" : "id";
+    const res = await fetch(`${API_URL}/articles/?lang=${apiLang}`, {
       next: { revalidate: 30 },
     });
     if (!res.ok) return [];
@@ -66,7 +66,7 @@ export default async function HomePage({
 }) {
   const { lang } = await params;
   const dict = await getDictionary(lang);
-  const articles = await getHomeArticles();
+  const articles = await getHomeArticles(lang);
 
   const bySlug = (slug: string) => articles.find((a) => a.slug === slug);
 
@@ -77,17 +77,25 @@ export default async function HomePage({
 
   const heroBg = resolveImageUrl(heroArt?.image_url) || FALLBACK_HERO;
 
-  // Hero title / highlight / subtitle
-  let showTitle =
-    dict.home.hero_title.split(" ").slice(0, -2).join(" ") || dict.home.hero_title;
-  let showHighlight =
-    dict.home.hero_highlight ||
-    dict.home.hero_title.split(" ").slice(-2).join(" ");
+  let showTitle = dict.home.hero_title;
+  let showHighlight = dict.home.hero_highlight || "";
   let heroSubtitle = dict.home.hero_subtitle;
 
+  // Auto-split hanya jika kata lebih dari 2 (agar judul pendek tidak rusak)
+  if (!showHighlight) {
+    const words = showTitle.split(" ");
+    if (words.length > 2) {
+      showTitle = words.slice(0, -2).join(" ");
+      showHighlight = words.slice(-2).join(" ");
+    }
+  }
+
+  // Jika di-override dari CMS (Database)
   if (heroArt?.title?.trim()) {
     showTitle = heroArt.title.trim();
+    showHighlight = "";
   }
+
   if (heroArt?.content) {
     const raw = heroArt.content;
     if (raw.includes("<<<")) {
@@ -100,7 +108,6 @@ export default async function HomePage({
     }
   }
 
-  // Cards
   const c1Title = cardAbout?.title || dict.home.bento_1_title;
   const c1Desc = cardAbout?.content
     ? plainText(cardAbout.content)
@@ -121,7 +128,6 @@ export default async function HomePage({
   return (
     <main className="bg-[#060c14] min-h-screen selection:bg-emerald-500 selection:text-white font-sans overflow-x-hidden">
       
-      {/* HERO */}
       <section className="relative w-full flex flex-col justify-center min-h-[90vh] pt-32 pb-0 z-0">
         <div className="absolute inset-0 z-0 pointer-events-none">
           <img
@@ -129,19 +135,24 @@ export default async function HomePage({
             alt="Tropical Canopy"
             className="w-full h-full object-cover scale-105 animate-[pulse_20s_ease-in-out_infinite_alternate]"
           />
-          <div className="absolute inset-0 bg-gradient-to-b from-[#060c14]/90 via-[#060c14]/60 to-[#060c14]" />
+          {/* Filter Hijau Gelap Solid */}
+          <div className="absolute inset-0 bg-emerald-950/40 mix-blend-multiply" />
+          {/* Gradient Fade yang lebih hijau */}
+          <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/80 via-[#060c14]/70 to-[#060c14]" />
         </div>
 
         <div className="relative z-10 w-full max-w-[1400px] mx-auto px-6 flex flex-col items-center justify-center text-center mt-10">
           <ScrollReveal baseClass="opacity-0 translate-y-12" className="flex flex-col items-center">
             <h1 className="text-5xl md:text-7xl lg:text-[6.5rem] font-extrabold text-white leading-[1.05] tracking-tight mb-8 max-w-5xl">
-              {showTitle} <br />
-              <span className="font-serif italic font-light text-emerald-400">
-                {showHighlight}
-              </span>
+              {showTitle} {showHighlight && <br />}
+              {showHighlight && (
+                <span className="font-serif italic font-light text-emerald-400">
+                  {showHighlight}
+                </span>
+              )}
             </h1>
 
-            <p className="text-lg md:text-2xl text-slate-300 font-medium leading-relaxed mb-12 max-w-2xl">
+            <p className="text-lg md:text-2xl text-emerald-50/70 font-medium leading-relaxed mb-12 max-w-2xl">
               {heroSubtitle}
             </p>
 
@@ -168,7 +179,7 @@ export default async function HomePage({
 
               <Link
                 href={`/${lang}/contact`}
-                className="px-8 py-4 bg-white/10 backdrop-blur-md border border-white/20 text-white text-[16px] font-bold rounded-full hover:bg-white/20 transition-all duration-300 text-center"
+                className="px-8 py-4 bg-emerald-900/30 backdrop-blur-md border border-emerald-500/20 text-emerald-50 text-[16px] font-bold rounded-full hover:bg-emerald-800/40 transition-all duration-300 text-center"
               >
                 {dict.home.btn_secondary}
               </Link>
@@ -176,7 +187,7 @@ export default async function HomePage({
           </ScrollReveal>
         </div>
 
-        <div className="relative z-10 w-full max-w-[1100px] mx-auto px-4 sm:px-6 mt-20 pb-16">
+        <div className="relative z-10 w-full max-w-[1100px] mx-auto px-4 sm:px-6 mt-20 pb-20 md:pb-24">
           <ScrollReveal delay="delay-300" baseClass="opacity-0 translate-y-12">
             <div className="w-full bg-[#111622]/90 backdrop-blur-2xl border border-white/10 rounded-[2.5rem] py-10 px-8 md:px-14 flex flex-col md:flex-row items-start md:items-center justify-between gap-8 md:gap-4 shadow-[0_20px_60px_rgba(0,0,0,0.5)]">
               <div className="flex-1 w-full">
@@ -220,15 +231,15 @@ export default async function HomePage({
         </div>
       </section>
 
-      {/* BENTO GRID */}
-      <section className="bg-slate-50 py-32 md:py-40 px-6 relative z-20 rounded-t-[3rem] shadow-[0_-20px_60px_rgba(0,0,0,0.3)]">
+      {/* Container Bento Putih menimpa hero (-mt-12 md:-mt-16) dan kontennya dinaikkan (pt-12 md:pt-16) */}
+      <section className="bg-slate-50 -mt-12 md:-mt-16 pt-12 md:pt-16 pb-28 md:pb-36 px-6 relative z-20 rounded-t-[3rem] shadow-[0_-20px_60px_rgba(0,0,0,0.3)]">
         <div className="max-w-[1400px] mx-auto">
-          <ScrollReveal className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-16 max-w-4xl">
+          <ScrollReveal className="flex flex-col md:flex-row md:items-end justify-between gap-6 mb-12 md:mb-16 max-w-4xl">
             <div>
-              <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-[#0a1118] tracking-tight mb-6 leading-[1.1]">
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold text-emerald-950 tracking-tight mb-4 md:mb-6 leading-[1.1]">
                 {dict.home.bento_heading}
               </h2>
-              <p className="text-xl md:text-2xl text-slate-500 font-medium leading-relaxed">
+              <p className="text-xl md:text-2xl text-emerald-600 font-medium leading-relaxed">
                 {dict.home.bento_subheading}
               </p>
             </div>
@@ -236,7 +247,6 @@ export default async function HomePage({
 
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8 auto-rows-[420px]">
             
-            {/* CARD 01 → About */}
             <ScrollReveal delay="delay-100" className="md:col-span-7 h-full">
               <Link href={`/${lang}/about`} className="block h-full">
                 <div className="h-full bg-[#eaeeed] rounded-[2.5rem] p-10 lg:p-12 relative overflow-hidden flex flex-col group hover:shadow-[0_20px_40px_-15px_rgba(16,185,129,0.2)] transition-shadow duration-500">
@@ -248,12 +258,12 @@ export default async function HomePage({
                     />
                   </div>
 
-                  <div className="w-16 h-16 rounded-2xl bg-[#0a1118] text-white flex items-center justify-center mb-8 shadow-lg relative z-10 group-hover:scale-105 transition-transform duration-500">
+                  <div className="w-16 h-16 rounded-2xl bg-emerald-900 text-white flex items-center justify-center mb-8 shadow-lg relative z-10 group-hover:scale-105 transition-transform duration-500">
                     <span className="font-serif font-extrabold text-2xl">01</span>
                   </div>
 
                   <div className="relative z-10 max-w-lg transition-transform duration-500 group-hover:-translate-y-2">
-                    <h3 className="text-[32px] lg:text-[40px] font-extrabold text-[#0a1118] mb-4 leading-tight tracking-tight">
+                    <h3 className="text-[32px] lg:text-[40px] font-extrabold text-emerald-700 mb-4 leading-tight tracking-tight">
                       {c1Title}
                     </h3>
                     <p className="text-[#153429] text-lg lg:text-[19px] leading-relaxed font-medium">
@@ -262,7 +272,7 @@ export default async function HomePage({
                   </div>
 
                   <div className="absolute bottom-8 right-8 z-10">
-                    <div className="w-16 h-16 rounded-full bg-[#0a1118] text-white flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:bg-emerald-600 transition-all duration-500">
+                    <div className="w-16 h-16 rounded-full bg-emerald-900 text-white flex items-center justify-center shadow-2xl group-hover:scale-110 group-hover:bg-emerald-600 transition-all duration-500">
                       <svg
                         className="w-6 h-6 -rotate-45"
                         fill="none"
@@ -279,20 +289,19 @@ export default async function HomePage({
                     </div>
                   </div>
 
-                  <div className="absolute -bottom-8 right-4 text-[220px] font-extrabold text-slate-200/60 select-none pointer-events-none leading-none z-0 group-hover:text-emerald-100/40 transition-colors duration-700">
+                  <div className="absolute -bottom-8 right-4 text-[220px] font-extrabold text-emerald-900/10 select-none pointer-events-none leading-none z-0 group-hover:text-emerald-900/20 transition-colors duration-700">
                     1
                   </div>
                 </div>
               </Link>
             </ScrollReveal>
 
-            {/* CARD 02 → Services */}
             <ScrollReveal delay="delay-300" className="md:col-span-5 h-full">
               <Link href={`/${lang}/services`} className="block h-full">
                 <div className="h-full bg-[#091512] rounded-[2.5rem] p-10 lg:p-12 shadow-2xl flex flex-col relative overflow-hidden group">
                   <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/10 rounded-full blur-[80px] group-hover:bg-emerald-400/20 group-hover:scale-150 transition-all duration-1000 z-0" />
 
-                  <div className="w-16 h-16 rounded-2xl bg-white/5 backdrop-blur-md border border-white/10 text-emerald-400 flex items-center justify-center mb-8 relative z-10 transition-transform duration-500 group-hover:scale-105">
+                  <div className="w-16 h-16 rounded-2xl bg-emerald-900/40 backdrop-blur-md border border-emerald-800 text-emerald-400 flex items-center justify-center mb-8 relative z-10 transition-transform duration-500 group-hover:scale-105">
                     <span className="font-serif font-extrabold text-2xl">02</span>
                   </div>
 
@@ -326,7 +335,6 @@ export default async function HomePage({
               </Link>
             </ScrollReveal>
 
-            {/* CARD 03 → Products */}
             <ScrollReveal delay="delay-500" className="md:col-span-12 h-[450px] md:h-[500px]">
               <Link href={`/${lang}/products`} className="block h-full">
                 <div className="h-full rounded-[2.5rem] overflow-hidden relative group shadow-xl">
@@ -339,7 +347,7 @@ export default async function HomePage({
 
                   <div className="absolute inset-x-0 bottom-0 p-8 md:p-12 flex flex-col md:flex-row md:items-end justify-between gap-8 z-10">
                     <div className="flex flex-col md:flex-row md:items-end gap-6 md:gap-10 max-w-4xl">
-                      <div className="w-16 h-16 shrink-0 rounded-2xl bg-emerald-500/20 backdrop-blur-md border border-emerald-400/30 text-emerald-300 flex items-center justify-center shadow-lg group-hover:-translate-y-2 group-hover:bg-emerald-500 group-hover:text-white group-hover:border-emerald-400 transition-all duration-500">
+                      <div className="w-16 h-16 shrink-0 rounded-2xl bg-emerald-900/60 backdrop-blur-md border border-emerald-800 text-emerald-300 flex items-center justify-center shadow-lg group-hover:-translate-y-2 group-hover:bg-emerald-600 group-hover:text-white transition-all duration-500">
                         <span className="font-serif font-extrabold text-2xl">03</span>
                       </div>
                       <div className="translate-y-4 group-hover:translate-y-0 opacity-80 group-hover:opacity-100 transition-all duration-700">

@@ -19,14 +19,13 @@ const BACKEND_ORIGIN = API_URL.replace(/\/api\/v1\/?$/, "");
 
 type Article = {
   id: number;
-  category: string;
   title: string;
   title_en?: string | null;
   slug: string;
   content: string;
   content_en?: string | null;
-  status: string;
   image_url?: string | null;
+  status: string;
 };
 
 type Row = {
@@ -36,6 +35,7 @@ type Row = {
   title_en: string;
   content: string;
   content_en: string;
+  slug: string;
   preview: string | null;
   file: File | null;
 };
@@ -56,7 +56,7 @@ function slugify(text: string, fallback: string) {
   return s || fallback;
 }
 
-export default function AdminServicesPage() {
+export default function AdminInsightsPage() {
   const params = useParams();
   const lang = (params?.lang as string) || "en";
   const isId = lang === "id";
@@ -70,7 +70,7 @@ export default function AdminServicesPage() {
   const [cropIndex, setCropIndex] = useState<number | null>(null);
 
   // State khusus untuk Custom Delete Modal
-  const [serviceToDelete, setServiceToDelete] = useState<number | null>(null);
+  const [insightToDelete, setInsightToDelete] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const token = () => localStorage.getItem("access_token");
@@ -89,25 +89,20 @@ export default function AdminServicesPage() {
   useEffect(() => {
     const load = async () => {
       try {
-        const res = await fetch(`${API_URL}/articles/?lang=id`);
-        if (!res.ok) throw new Error("Failed to load");
+        const res = await fetch(`${API_URL}/articles/?category=insight&lang=id`);
+        if (!res.ok) throw new Error("Failed to load insights");
         const data = await res.json();
         const list: Article[] = Array.isArray(data) ? data : [];
-        
-        // MENGUNCI URUTAN BERDASARKAN ID AGAR TIDAK MELOMPAT SAAT DI-EDIT
-        const services = list
-          .filter((a) => a.category === "services")
-          .sort((a, b) => a.id - b.id);
-
         setRows(
-          services.length
-            ? services.map((a) => ({
+          list.length
+            ? list.map((a) => ({
                 key: `id-${a.id}`,
                 id: a.id,
                 title: a.title || "",
                 title_en: a.title_en || "",
                 content: a.content || "",
                 content_en: a.content_en || "",
+                slug: a.slug || "",
                 preview: resolveImageUrl(a.image_url),
                 file: null,
               }))
@@ -119,13 +114,14 @@ export default function AdminServicesPage() {
                   title_en: "",
                   content: "",
                   content_en: "",
+                  slug: "",
                   preview: null,
                   file: null,
                 },
               ]
         );
-      } catch (err: any) {
-        setError(err.message);
+      } catch (e: any) {
+        setError(e.message);
       } finally {
         setLoading(false);
       }
@@ -147,12 +143,13 @@ export default function AdminServicesPage() {
         title_en: "",
         content: "",
         content_en: "",
+        slug: "",
         preview: null,
         file: null,
       },
     ]);
-    
-    // Auto scroll ke bawah perlahan ketika menambah row baru
+
+    // Auto scroll ke bawah saat menambah baris baru
     setTimeout(() => {
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
     }, 100);
@@ -160,11 +157,11 @@ export default function AdminServicesPage() {
 
   // Eksekusi penghapusan sesudah konfirmasi
   const executeDelete = async () => {
-    if (serviceToDelete === null) return;
-
-    const index = serviceToDelete;
+    if (insightToDelete === null) return;
+    
+    const index = insightToDelete;
     const row = rows[index];
-
+    
     if (row.id) {
       setIsDeleting(true);
       try {
@@ -172,18 +169,18 @@ export default function AdminServicesPage() {
           method: "DELETE",
           headers: { Authorization: `Bearer ${token()}` },
         });
-        if (!res.ok) throw new Error(isId ? "Gagal menghapus layanan" : "Delete service failed");
+        if (!res.ok) throw new Error(isId ? "Gagal menghapus insight" : "Delete insight failed");
         
-        setSuccess(isId ? "Layanan berhasil dihapus!" : "Service successfully deleted!");
+        setSuccess(isId ? "Insight berhasil dihapus!" : "Insight successfully deleted!");
       } catch (err: any) {
         setError(err.message);
         setIsDeleting(false);
-        setServiceToDelete(null);
+        setInsightToDelete(null);
         return;
       }
     } else {
-      // Jika layanan baru (belum disimpan), langsung munculkan sukses pembatalan
-      setSuccess(isId ? "Layanan batal ditambahkan." : "Draft service removed.");
+      // Jika insight baru (belum disimpan), langsung munculkan sukses
+      setSuccess(isId ? "Insight batal ditambahkan." : "Draft insight removed.");
     }
 
     setRows((prev) => {
@@ -198,6 +195,7 @@ export default function AdminServicesPage() {
               title_en: "",
               content: "",
               content_en: "",
+              slug: "",
               preview: null,
               file: null,
             },
@@ -205,7 +203,7 @@ export default function AdminServicesPage() {
     });
 
     setIsDeleting(false);
-    setServiceToDelete(null);
+    setInsightToDelete(null);
   };
 
   const uploadImage = async (articleId: number, file: File) => {
@@ -216,7 +214,7 @@ export default function AdminServicesPage() {
       headers: { Authorization: `Bearer ${token()}` },
       body: fd,
     });
-    if (!res.ok) throw new Error(isId ? "Upload gagal" : "Upload failed");
+    if (!res.ok) throw new Error("Upload failed");
   };
 
   const handleSaveAll = async () => {
@@ -224,13 +222,12 @@ export default function AdminServicesPage() {
     setError(null);
     setSuccess(null);
     try {
-      const nextRows = [...rows];
-
-      for (let i = 0; i < nextRows.length; i++) {
-        const row = nextRows[i];
-        const title = row.title.trim() || `Service ${i + 1}`;
+      const next = [...rows];
+      for (let i = 0; i < next.length; i++) {
+        const row = next[i];
+        const title = row.title.trim() || `Insight ${i + 1}`;
         const payload: Record<string, unknown> = {
-          category: "services",
+          category: "insight",
           title,
           title_en: row.title_en.trim() || null,
           content: row.content || "-",
@@ -240,11 +237,10 @@ export default function AdminServicesPage() {
         };
         
         if (!row.id) {
-          payload.slug = slugify(title, `service-${i + 1}-${Date.now()}`);
+          payload.slug = slugify(row.slug || title, `insight-${Date.now()}`);
         }
 
         let saved: Article;
-
         if (row.id) {
           const res = await fetch(`${API_URL}/articles/${row.id}`, {
             method: "PUT",
@@ -254,7 +250,7 @@ export default function AdminServicesPage() {
             },
             body: JSON.stringify(payload),
           });
-          if (!res.ok) throw new Error(`Gagal update layanan #${i + 1}`);
+          if (!res.ok) throw new Error(`Gagal update insight #${i + 1}`);
           saved = await res.json();
         } else {
           const res = await fetch(`${API_URL}/articles/`, {
@@ -265,39 +261,23 @@ export default function AdminServicesPage() {
             },
             body: JSON.stringify(payload),
           });
-          if (!res.ok) throw new Error(`Gagal buat layanan #${i + 1}`);
+          if (!res.ok) throw new Error(`Gagal buat insight #${i + 1}`);
           saved = await res.json();
-          nextRows[i] = { ...row, id: saved.id, key: `id-${saved.id}` };
+          next[i] = { ...row, id: saved.id, key: `id-${saved.id}`, slug: saved.slug };
         }
-
+        
         if (row.file && saved.id) {
           await uploadImage(saved.id, row.file);
-          nextRows[i] = { ...nextRows[i], file: null };
+          next[i] = { ...next[i], file: null };
         }
       }
-
-      setRows(nextRows);
-      setSuccess(isId ? "Semua layanan berhasil disimpan!" : "All services saved successfully!");
-    } catch (err: any) {
-      setError(err.message || "An error occurred while saving.");
+      setRows(next);
+      setSuccess(isId ? "Semua insight berhasil disimpan!" : "All insights saved successfully!");
+    } catch (e: any) {
+      setError(e.message || "An error occurred while saving.");
     } finally {
       setSaving(false);
     }
-  };
-
-  const openCrop = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setCropIndex(index);
-    setCropSrc(URL.createObjectURL(file));
-    e.target.value = "";
-  };
-
-  const layoutHint = (index: number) => {
-    if (index % 3 === 0) {
-      return isId ? "Kartu BESAR (full)" : "LARGE card (full)";
-    }
-    return isId ? "Kartu kecil (pasangan 2 kolom)" : "Small card (2-col pair)";
   };
 
   if (loading) {
@@ -319,7 +299,7 @@ export default function AdminServicesPage() {
     <div className="max-w-5xl mx-auto pb-20 font-sans relative">
       
       {/* GLOBAL POPUP MODAL NOTIFICATION */}
-      {(error || success) && serviceToDelete === null && (
+      {(error || success) && !insightToDelete && (
         <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden p-8 text-center relative animate-in zoom-in-[0.5] fade-in duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
             {error ? (
@@ -366,7 +346,7 @@ export default function AdminServicesPage() {
       )}
 
       {/* CUSTOM DELETE CONFIRMATION MODAL */}
-      {serviceToDelete !== null && (
+      {insightToDelete !== null && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden relative animate-in zoom-in-[0.5] fade-in duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
             <div className="p-10 text-center">
@@ -376,13 +356,13 @@ export default function AdminServicesPage() {
               </div>
 
               <h3 className="text-2xl font-extrabold text-slate-800 mb-3 tracking-tight">
-                {isId ? "Hapus Layanan Ini?" : "Delete This Service?"}
+                {isId ? "Hapus Insight Ini?" : "Delete This Insight?"}
               </h3>
 
               <p className="text-slate-500 text-[14.5px] mb-8 leading-relaxed px-2">
-                {isId ? "Apakah Anda yakin ingin menghapus layanan" : "Are you sure you want to delete service"}{" "}
+                {isId ? "Apakah Anda yakin ingin menghapus insight" : "Are you sure you want to delete insight"}{" "}
                 <span className="font-extrabold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md inline-block mx-1 truncate max-w-[200px] align-bottom">
-                  {rows[serviceToDelete]?.title || (isId ? "Baru" : "New")}
+                  {rows[insightToDelete]?.title || (isId ? "Baru" : "New")}
                 </span>
                 ?{" "}
                 {isId
@@ -392,7 +372,7 @@ export default function AdminServicesPage() {
 
               <div className="flex flex-col-reverse sm:flex-row gap-3">
                 <button
-                  onClick={() => setServiceToDelete(null)}
+                  onClick={() => setInsightToDelete(null)}
                   disabled={isDeleting}
                   className="flex-1 py-4 bg-slate-50 border border-slate-200 text-slate-600 text-[14.5px] font-bold rounded-2xl hover:bg-slate-100 transition-colors disabled:opacity-50 active:scale-95"
                 >
@@ -423,12 +403,12 @@ export default function AdminServicesPage() {
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-1 flex items-center gap-3">
             <ShieldCheck className="w-7 h-7 text-emerald-500" />
-            {isId ? "Kelola Services" : "Manage Services"}
+            {isId ? "Kelola Insights" : "Manage Insights"}
           </h1>
           <p className="text-slate-500 font-medium text-[13px] hidden md:block">
             {isId
-              ? "Isi ID + EN. Pola website mengikuti urutan angka di bawah."
-              : "Fill ID + EN. Website layout follows the numerical order below."}
+              ? "Hanya admin yang dapat mempublikasikan ini. Isi versi ID & EN."
+              : "Admin-only publish. Fill Indonesian (ID) and English (EN)."}
           </p>
         </div>
 
@@ -457,10 +437,10 @@ export default function AdminServicesPage() {
                 <span className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-sm">
                   {index + 1}
                 </span>
-                {isId ? "Layanan" : "Service"}
+                Insight
               </h2>
               <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
-                {layoutHint(index)}
+                {row.slug || "New Draft"}
               </span>
             </div>
 
@@ -473,7 +453,7 @@ export default function AdminServicesPage() {
                   className={inputCls}
                   value={row.title}
                   onChange={(e) => updateRow(index, { title: e.target.value })}
-                  placeholder={isId ? "Misal: Restorasi Ekosistem" : "e.g. Ecosystem Restoration"}
+                  placeholder={isId ? "Judul artikel insight..." : "Insight title..."}
                 />
               </div>
               <div className="space-y-2">
@@ -484,7 +464,7 @@ export default function AdminServicesPage() {
                   className={inputCls}
                   value={row.title_en}
                   onChange={(e) => updateRow(index, { title_en: e.target.value })}
-                  placeholder="e.g. Ecosystem Restoration"
+                  placeholder="Insight title in English..."
                 />
               </div>
             </div>
@@ -517,25 +497,31 @@ export default function AdminServicesPage() {
             <div className="mt-4">
               <div className="flex items-center justify-between mb-3">
                 <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
-                  {isId ? "Gambar Layanan" : "Service Image"}
+                  {isId ? "Gambar Insight" : "Insight Image"}
                 </label>
                 <span className="text-[11px] font-bold px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full">
-                  Ratio: 16:9 ata 4:3
+                  Ratio: 16:9
                 </span>
               </div>
 
               {row.preview ? (
-                <div className="relative w-full aspect-[21/9] md:aspect-video rounded-2xl overflow-hidden border-4 border-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] group">
+                <div className="relative w-full aspect-video rounded-2xl overflow-hidden border-4 border-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] group">
                   <img src={row.preview} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/20 transition-colors duration-300 flex items-start justify-end p-4 opacity-0 group-hover:opacity-100">
                     <label className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-md text-slate-700 text-sm font-bold rounded-xl hover:bg-white hover:scale-105 transition-all shadow-lg cursor-pointer">
                       <ImagePlus className="w-4 h-4" />
-                      {isId ? "Ganti" : "Change"}
+                      {isId ? "Ganti Gambar" : "Change Image"}
                       <input
                         type="file"
                         accept="image/jpeg,image/png,image/webp"
                         className="hidden"
-                        onChange={(e) => openCrop(index, e)}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (!file) return;
+                          setCropIndex(index);
+                          setCropSrc(URL.createObjectURL(file));
+                          e.target.value = "";
+                        }}
                       />
                     </label>
                   </div>
@@ -555,7 +541,13 @@ export default function AdminServicesPage() {
                     type="file"
                     accept="image/jpeg,image/png,image/webp"
                     className="hidden"
-                    onChange={(e) => openCrop(index, e)}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      setCropIndex(index);
+                      setCropSrc(URL.createObjectURL(file));
+                      e.target.value = "";
+                    }}
                   />
                 </label>
               )}
@@ -564,11 +556,11 @@ export default function AdminServicesPage() {
             <div className="flex justify-end pt-4 border-t border-slate-100">
               <button
                 type="button"
-                onClick={() => setServiceToDelete(index)}
+                onClick={() => setInsightToDelete(index)}
                 className="inline-flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
-                {isId ? "Hapus Layanan Ini" : "Remove this service"}
+                {isId ? "Hapus Insight Ini" : "Remove this insight"}
               </button>
             </div>
           </section>
@@ -583,7 +575,7 @@ export default function AdminServicesPage() {
           className="inline-flex items-center justify-center gap-2 px-6 py-4 rounded-2xl border-2 border-emerald-100 bg-white text-emerald-700 font-bold hover:bg-emerald-50 hover:border-emerald-200 transition-colors w-full sm:w-auto shadow-sm active:scale-95"
         >
           <Plus className="w-5 h-5" />
-          {isId ? "Tambah Layanan Baru" : "Add New Service"}
+          {isId ? "Tambah Insight Baru" : "Add New Insight"}
         </button>
         <button
           type="button"
@@ -611,8 +603,7 @@ export default function AdminServicesPage() {
             setCropIndex(null);
           }}
           onComplete={(file) => {
-            const preview = URL.createObjectURL(file);
-            updateRow(cropIndex, { preview, file });
+            updateRow(cropIndex, { preview: URL.createObjectURL(file), file });
             setCropSrc(null);
             setCropIndex(null);
           }}

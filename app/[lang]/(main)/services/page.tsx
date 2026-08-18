@@ -2,23 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import {
-  TreePine,
-  Map,
-  Bird,
-  Users,
-  TrendingUp,
-  Check,
-  FileText,
-} from "lucide-react";
+import { Check, ChevronDown } from "lucide-react";
 import ScrollReveal from "../../../../components/ScrollReveal";
 import en from "../../../../dictionaries/en.json";
 import id from "../../../../dictionaries/id.json";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 const BACKEND_ORIGIN = API_URL.replace(/\/api\/v1\/?$/, "");
-
-const icons = [TreePine, Map, Bird, Users, TrendingUp, FileText];
 
 const fallbackImages = [
   "https://images.unsplash.com/photo-1511497584788-876760111969?q=80&w=1200&auto=format&fit=crop",
@@ -130,7 +120,7 @@ function Description({
   if (descHtml) {
     return (
       <div
-        className={`prose prose-emerald max-w-none prose-p:my-0 prose-p:leading-relaxed prose-strong:text-slate-900 prose-strong:font-bold ${className || ""}`}
+        className={`prose prose-emerald max-w-none prose-p:my-0 prose-p:leading-relaxed prose-strong:text-emerald-950 prose-strong:font-bold ${className || ""}`}
         dangerouslySetInnerHTML={{ __html: descHtml }}
       />
     );
@@ -138,7 +128,7 @@ function Description({
   return <p className={className}>{desc}</p>;
 }
 
-function LargeCard({
+function ServiceCard({
   service,
   index,
   scopeLabel,
@@ -149,12 +139,21 @@ function LargeCard({
   scopeLabel: string;
   getImage: (item: ServiceItem, index: number) => string;
 }) {
-  const Icon = icons[index % icons.length];
+  const [isExpanded, setIsExpanded] = useState(false);
 
   return (
-    <ScrollReveal delay="delay-100" className="md:col-span-12">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 lg:gap-8 items-center">
-        <div className="w-full aspect-video rounded-[2.5rem] overflow-hidden relative shadow-sm border border-slate-200 group">
+    <ScrollReveal
+      delay={`delay-${Math.min((index % 3) * 100 + 100, 300)}`}
+      className="w-full" /* h-full dihapus agar kartu di sebelahnya tidak ikut melar */
+    >
+      <div className="bg-white p-6 md:p-8 rounded-[2rem] border border-slate-200 hover:border-emerald-200 hover:shadow-[0_20px_40px_-15px_rgba(16,185,129,0.1)] transition-all duration-500 flex flex-col group relative">
+        
+        <div className="absolute -top-20 -right-20 w-64 h-64 bg-emerald-100/50 rounded-full blur-[80px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000 z-0 pointer-events-none" />
+
+        <div 
+          className="w-full aspect-[4/3] mb-6 rounded-[1.25rem] overflow-hidden relative shadow-sm shrink-0 border border-slate-100 group-hover:border-emerald-200 transition-colors cursor-pointer"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
           <img
             src={getImage(service, index)}
             alt={service.title}
@@ -162,113 +161,61 @@ function LargeCard({
           />
         </div>
 
-        <div className="w-full bg-white p-8 lg:p-12 rounded-[2.5rem] border border-slate-200 hover:border-emerald-200 hover:shadow-[0_20px_60px_-15px_rgba(16,185,129,0.1)] transition-all duration-700 relative overflow-hidden group flex flex-col justify-start">
-          <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-emerald-100/30 rounded-full blur-[100px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000 z-0 pointer-events-none" />
+        <h3 
+          className="text-xl md:text-2xl font-extrabold text-emerald-700 leading-snug tracking-tight mb-4 relative z-10 group-hover:text-emerald-950 transition-colors cursor-pointer"
+          onClick={() => setIsExpanded(!isExpanded)}
+        >
+          {service.title}
+        </h3>
 
-          <div className="relative z-10 w-full">
-            <div className="flex items-center gap-5 mb-6">
-              <div className="w-16 h-16 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-white transition-all duration-500 shadow-sm shrink-0 group-hover:rotate-3">
-                <Icon className="w-8 h-8" />
+        {/* line-clamp-3 dihapus agar deskripsi tampil penuh dan tidak terpotong "..." */}
+        <div className="mb-6 relative z-10">
+          <Description
+            desc={service.desc}
+            descHtml={service.descHtml}
+            className="text-slate-600 leading-relaxed text-[15px] font-medium"
+          />
+        </div>
+
+        {service.scopes.length > 0 && (
+          <div className="relative z-10 mt-auto flex flex-col pt-5 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setIsExpanded(!isExpanded)}
+              className="flex items-center justify-between w-full group/toggle outline-none"
+            >
+              <span className="text-[12px] font-bold text-slate-800 uppercase tracking-[0.15em] group-hover/toggle:text-emerald-600 transition-colors">
+                {scopeLabel}
+              </span>
+              <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-300 ${isExpanded ? "bg-emerald-50 text-emerald-600 rotate-180" : "bg-slate-50 text-slate-400 group-hover/toggle:bg-emerald-50 group-hover/toggle:text-emerald-600"}`}>
+                <ChevronDown className="w-4 h-4" />
               </div>
-              <h3 className="text-3xl lg:text-4xl xl:text-5xl font-extrabold text-[#0a1118] leading-tight tracking-tight">
-                {service.title}
-              </h3>
-            </div>
+            </button>
 
-            <Description
-              desc={service.desc}
-              descHtml={service.descHtml}
-              className="text-slate-600 leading-relaxed text-lg lg:text-xl font-medium"
-            />
-
-            {service.scopes.length > 0 && (
-              <div className="bg-slate-50/80 rounded-3xl p-8 border border-slate-100 mt-8">
-                <h4 className="text-xs font-bold text-slate-400 uppercase tracking-[0.2em] mb-6">
-                  {scopeLabel}
-                </h4>
-                <ul className="space-y-4">
+            <div 
+              className={`grid transition-all duration-500 ease-[cubic-bezier(0.4,0,0.2,1)] ${
+                isExpanded ? "grid-rows-[1fr] opacity-100 mt-5" : "grid-rows-[0fr] opacity-0 mt-0"
+              }`}
+            >
+              <div className="overflow-hidden">
+                <ul className="space-y-4 pb-2">
                   {service.scopes.map((scope, i) => (
-                    <li key={i} className="flex items-start gap-4">
-                      <div className="w-6 h-6 rounded-full bg-white border border-slate-200 flex items-center justify-center shrink-0 mt-0.5 shadow-sm group-hover:bg-emerald-500 group-hover:border-emerald-500 transition-colors duration-500">
-                        <Check
-                          className="w-3.5 h-3.5 text-emerald-500 group-hover:text-white transition-colors duration-500"
-                          strokeWidth={3}
-                        />
-                      </div>
-                      <span className="text-slate-700 text-base leading-relaxed font-semibold">
+                    <li key={i} className="flex items-start gap-3">
+                      <Check
+                        className="w-[18px] h-[18px] text-emerald-500 shrink-0 mt-[3px]"
+                        strokeWidth={3}
+                      />
+                      <span className="text-slate-600 text-[14.5px] leading-relaxed font-semibold">
                         {scope}
                       </span>
                     </li>
                   ))}
                 </ul>
               </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </ScrollReveal>
-  );
-}
-
-function SmallCard({
-  service,
-  index,
-  getImage,
-}: {
-  service: ServiceItem;
-  index: number;
-  getImage: (item: ServiceItem, index: number) => string;
-}) {
-  const Icon = icons[index % icons.length];
-
-  return (
-    <ScrollReveal
-      delay={`delay-${Math.min((index % 3) * 100 + 100, 500)}`}
-      className="md:col-span-6"
-    >
-      <div className="bg-white p-8 lg:p-10 rounded-[2.5rem] border border-slate-200 hover:border-emerald-200 hover:shadow-[0_20px_40px_-15px_rgba(16,185,129,0.1)] transition-all duration-700 flex flex-col group overflow-hidden relative h-full">
-        <div className="absolute -top-20 -right-20 w-64 h-64 bg-emerald-100/50 rounded-full blur-[80px] opacity-0 group-hover:opacity-100 transition-opacity duration-1000 z-0 pointer-events-none" />
-
-        <div className="w-full aspect-video mb-8 rounded-[1.5rem] overflow-hidden relative shadow-sm shrink-0 z-10 border border-slate-100 group-hover:border-emerald-200 transition-colors">
-          <img
-            src={getImage(service, index)}
-            alt={service.title}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000 ease-out"
-          />
-        </div>
-
-        <div className="flex items-center gap-4 mb-5 relative z-10">
-          <div className="w-14 h-14 bg-emerald-50 border border-emerald-100 rounded-2xl flex items-center justify-center text-emerald-600 group-hover:scale-110 group-hover:bg-emerald-500 group-hover:text-white transition-all duration-500 shadow-sm shrink-0 group-hover:-rotate-3">
-            <Icon className="w-6 h-6" />
-          </div>
-          <h3 className="text-2xl lg:text-3xl font-extrabold text-[#0a1118] leading-snug tracking-tight">
-            {service.title}
-          </h3>
-        </div>
-
-        <Description
-          desc={service.desc}
-          descHtml={service.descHtml}
-          className="text-slate-600 leading-relaxed text-lg font-medium relative z-10"
-        />
-
-        {service.scopes.length > 0 && (
-          <div className="mt-8 pt-8 border-t border-slate-100 relative z-10">
-            <ul className="space-y-4">
-              {service.scopes.map((scope, i) => (
-                <li key={i} className="flex items-start gap-4">
-                  <Check
-                    className="w-5 h-5 text-emerald-500 shrink-0 mt-0.5"
-                    strokeWidth={3}
-                  />
-                  <span className="text-slate-700 text-[15px] leading-relaxed font-medium">
-                    {scope}
-                  </span>
-                </li>
-              ))}
-            </ul>
+            </div>
           </div>
         )}
+
       </div>
     </ScrollReveal>
   );
@@ -283,7 +230,7 @@ export default function ServicesPage() {
   const [services, setServices] = useState<ServiceItem[]>([]);
   const [loading, setLoading] = useState(true);
 
-    useEffect(() => {
+  useEffect(() => {
     const load = async () => {
       setLoading(true);
       try {
@@ -293,9 +240,9 @@ export default function ServicesPage() {
         const data = await res.json();
         const list: Article[] = Array.isArray(data) ? data : [];
 
-        const published = list.filter(
-          (a) => a.category === "services" && a.status === "published"
-        );
+        const published = list
+          .filter((a) => a.category === "services" && a.status === "published")
+          .sort((a, b) => a.id - b.id);
 
         setServices(
           published.map((a) => {
@@ -325,52 +272,16 @@ export default function ServicesPage() {
   const scopeLabel =
     t.scope_label || (lang === "id" ? "Ruang Lingkup:" : "Scope of Work:");
 
-  // Pola: index % 3 === 0 → besar | selain itu → kecil (pasangan)
-  const cards: React.ReactNode[] = [];
-  for (let i = 0; i < services.length; i++) {
-    if (i % 3 === 0) {
-      cards.push(
-        <LargeCard
-          key={services[i].id}
-          service={services[i]}
-          index={i}
-          scopeLabel={scopeLabel}
-          getImage={getImage}
-        />
-      );
-    } else if (i % 3 === 1) {
-      cards.push(
-        <SmallCard
-          key={services[i].id}
-          service={services[i]}
-          index={i}
-          getImage={getImage}
-        />
-      );
-      if (services[i + 1]) {
-        cards.push(
-          <SmallCard
-            key={services[i + 1].id}
-            service={services[i + 1]}
-            index={i + 1}
-            getImage={getImage}
-          />
-        );
-      }
-    }
-    // i % 3 === 2 sudah ikut di blok sebelumnya
-  }
-
   return (
     <main className="bg-slate-50 min-h-screen selection:bg-emerald-200 selection:text-emerald-950 font-sans relative overflow-hidden pb-32">
       <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[800px] h-[600px] bg-emerald-100/50 rounded-full blur-[150px] pointer-events-none" />
       <div className="absolute top-40 right-0 w-[600px] h-[600px] bg-cyan-50/50 rounded-full blur-[120px] pointer-events-none" />
       <div className="absolute inset-0 z-0 pointer-events-none bg-[linear-gradient(to_right,#e2e8f0_1px,transparent_1px),linear-gradient(to_bottom,#e2e8f0_1px,transparent_1px)] bg-[size:4rem_4rem] [mask-image:radial-gradient(ellipse_60%_40%_at_50%_0%,#000_70%,transparent_100%)] opacity-60" />
 
-      <div className="max-w-[1400px] mx-auto px-6 relative z-10 pt-40 md:pt-52">
+      <div className="max-w-[1400px] mx-auto px-6 relative z-10 pt-28 md:pt-36">
         <ScrollReveal
           baseClass="opacity-0 translate-y-12"
-          className="max-w-4xl mx-auto text-center mb-28"
+          className="max-w-4xl mx-auto text-center mb-20 md:mb-24"
         >
           <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full border border-slate-200 bg-white mb-10 shadow-sm">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
@@ -406,8 +317,16 @@ export default function ServicesPage() {
               : "No published services yet."}
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-12 gap-6 lg:gap-8 items-start">
-            {cards}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 lg:gap-8 items-start">
+            {services.map((service, index) => (
+              <ServiceCard
+                key={service.id}
+                service={service}
+                index={index}
+                scopeLabel={scopeLabel}
+                getImage={getImage}
+              />
+            ))}
           </div>
         )}
       </div>
