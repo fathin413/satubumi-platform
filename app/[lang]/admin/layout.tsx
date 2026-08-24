@@ -17,6 +17,7 @@ import {
   Briefcase,
   type LucideIcon,
   Newspaper,
+  Tag,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -100,6 +101,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           icon: Briefcase,
         },
         { href: `/${lang}/admin/insights`, label: "Insights", icon: Newspaper },
+        {
+      href: `/${lang}/admin/insight-topics`,
+      label: isId ? "Topic Insight" : "Insight Topics",
+      icon: Tag, // pastikan Tag di-import dari lucide-react
+    },
+        
       ],
     },
     {
@@ -306,34 +313,34 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       )}
 
-      {/* MAIN CONTENT */}
-      <div className="flex-1 lg:ml-[280px] flex flex-col min-h-screen">
-        <header className="h-[76px] bg-white/80 backdrop-blur-xl border-b-2 border-slate-200 flex items-center justify-between px-6 md:px-10 sticky top-0 z-30 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)] transition-all">
-          <div className="flex items-center gap-4">
+            {/* MAIN CONTENT */}
+      <div className="flex-1 lg:ml-[280px] flex flex-col min-h-screen min-w-0 overflow-x-hidden">
+        <header className="h-[76px] bg-white/80 backdrop-blur-xl border-b-2 border-slate-200 flex items-center justify-between gap-3 px-6 md:px-10 sticky top-0 z-30 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)]">
+          <div className="flex items-center gap-4 min-w-0">
             <button
               type="button"
-              className="lg:hidden p-2 -ml-2 rounded-xl hover:bg-slate-100 text-slate-800 transition-all active:scale-90"
+              className="lg:hidden p-2 -ml-2 rounded-xl hover:bg-slate-100 text-slate-800 shrink-0"
               onClick={() => setSidebarOpen(true)}
             >
               <Menu className="w-5 h-5" />
             </button>
 
-            <div className="hidden md:flex items-center gap-2.5 text-[13px] font-bold text-slate-800 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200/80 shadow-sm">
+            <div className="hidden md:flex items-center gap-2.5 text-[13px] font-bold text-slate-800 bg-slate-50 px-4 py-2 rounded-xl border border-slate-200/80 shadow-sm shrink-0">
               <LayoutDashboard className="w-4 h-4 text-emerald-600" />
               <span>{isId ? "Panel Admin" : "Admin Workspace"}</span>
             </div>
           </div>
 
           {user && (
-            <div className="flex items-center gap-4 group cursor-pointer p-1.5 pr-4 rounded-[1.25rem] hover:bg-slate-50 transition-all active:scale-95 border border-transparent hover:border-slate-200">
-              <div className="w-10 h-10 rounded-[12px] bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center font-extrabold text-sm shadow-sm group-hover:shadow-md group-hover:-rotate-6 transition-all duration-300">
+            <div className="flex items-center gap-3 min-w-0 max-w-[50%] sm:max-w-[240px] p-1.5 pr-3 rounded-[1.25rem] hover:bg-slate-50 border border-transparent hover:border-slate-200">
+              <div className="w-10 h-10 rounded-[12px] bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center font-extrabold text-sm shrink-0">
                 {getInitials(user.full_name)}
               </div>
-              <div className="text-left hidden sm:block">
-                <p className="text-[14px] font-extrabold text-slate-800 leading-none group-hover:text-emerald-700 transition-colors">
+              <div className="text-left hidden sm:block min-w-0">
+                <p className="text-[14px] font-extrabold text-slate-800 leading-none truncate">
                   {user.full_name}
                 </p>
-                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1">
+                <p className="text-[11px] font-bold text-slate-500 uppercase tracking-widest mt-1 truncate">
                   {user.role.replace("_", " ")}
                 </p>
               </div>
@@ -341,11 +348,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           )}
         </header>
 
-        <div className="flex-1 max-w-[1400px] w-full mx-auto p-6 md:p-10">
-          <div
-            key={pathname}
-            className="animate-in fade-in slide-in-from-bottom-8 duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] h-full"
-          >
+        <div className="flex-1 w-full max-w-[1400px] mx-auto p-6 md:p-10 min-w-0">
+          <div key={pathname} className="animate-in fade-in duration-300 h-full min-w-0">
             {children}
           </div>
         </div>

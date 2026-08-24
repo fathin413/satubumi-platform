@@ -21,6 +21,8 @@ const BACKEND_ORIGIN = API_URL.replace(/\/api\/v1\/?$/, "");
 
 const SLUGS = {
   hero: "home-hero",
+  heroBg2: "home-hero-bg-2",
+  heroBg3: "home-hero-bg-3",
   about: "home-card-about",
   services: "home-card-services",
   products: "home-card-products",
@@ -39,7 +41,7 @@ type Article = {
 };
 
 type ImgSlot = { preview: string | null; file: File | null };
-type CropTarget = "hero" | "about" | "products";
+type CropTarget = "hero" | "heroBg2" | "heroBg3" | "about" | "products";
 type IdKey = keyof typeof SLUGS;
 
 function resolveImageUrl(url?: string | null) {
@@ -91,8 +93,10 @@ export default function AdminHomePage() {
   // State untuk mengontrol pop-up konfirmasi hapus gambar custom
   const [deleteConfirm, setDeleteConfirm] = useState<{ key: IdKey; onClear: () => void } | null>(null);
 
-  const [ids, setIds] = useState<Record<IdKey, number | null>>({
+    const [ids, setIds] = useState<Record<IdKey, number | null>>({
     hero: null,
+    heroBg2: null,
+    heroBg3: null,
     about: null,
     services: null,
     products: null,
@@ -121,6 +125,8 @@ export default function AdminHomePage() {
   const [productsDescEn, setProductsDescEn] = useState("");
 
   const [heroImg, setHeroImg] = useState<ImgSlot>({ preview: null, file: null });
+  const [heroImg2, setHeroImg2] = useState<ImgSlot>({ preview: null, file: null });
+  const [heroImg3, setHeroImg3] = useState<ImgSlot>({ preview: null, file: null });
   const [aboutImg, setAboutImg] = useState<ImgSlot>({ preview: null, file: null });
   const [productsImg, setProductsImg] = useState<ImgSlot>({ preview: null, file: null });
 
@@ -153,12 +159,16 @@ export default function AdminHomePage() {
         const about = find(SLUGS.about);
         const services = find(SLUGS.services);
         const products = find(SLUGS.products);
+        const heroBg2 = find(SLUGS.heroBg2);
+        const heroBg3 = find(SLUGS.heroBg3);
 
         setIds({
           hero: hero?.id ?? null,
           about: about?.id ?? null,
           services: services?.id ?? null,
           products: products?.id ?? null,
+          heroBg2: heroBg2?.id ?? null,
+          heroBg3: heroBg3?.id ?? null,
         });
 
         if (hero) {
@@ -171,6 +181,12 @@ export default function AdminHomePage() {
           setHeroHighlightEn(parsedEn.highlight);
           setHeroSubtitleEn(parsedEn.subtitle);
           setHeroImg({ preview: resolveImageUrl(hero.image_url), file: null });
+        }
+        if (heroBg2) {
+          setHeroImg2({ preview: resolveImageUrl(heroBg2.image_url), file: null });
+        }
+        if (heroBg3) {
+          setHeroImg3({ preview: resolveImageUrl(heroBg3.image_url), file: null });
         }
         if (about) {
           setAboutTitle(about.title || "");
@@ -328,6 +344,24 @@ export default function AdminHomePage() {
       });
       if (heroImg.file) await uploadImage(heroSaved.id, heroImg.file);
 
+            const bg2Saved = await upsert("heroBg2", {
+        title: "Hero background 2",
+        title_en: "Hero background 2",
+        content: "-",
+        content_en: "-",
+        slug: SLUGS.heroBg2,
+      });
+      if (heroImg2.file) await uploadImage(bg2Saved.id, heroImg2.file);
+
+      const bg3Saved = await upsert("heroBg3", {
+        title: "Hero background 3",
+        title_en: "Hero background 3",
+        content: "-",
+        content_en: "-",
+        slug: SLUGS.heroBg3,
+      });
+      if (heroImg3.file) await uploadImage(bg3Saved.id, heroImg3.file);
+
       const aboutSaved = await upsert("about", {
         title: aboutTitle || "About",
         title_en: aboutTitleEn,
@@ -355,6 +389,8 @@ export default function AdminHomePage() {
       if (productsImg.file) await uploadImage(productsSaved.id, productsImg.file);
 
       setHeroImg((p) => ({ ...p, file: null }));
+      setHeroImg2((p) => ({ ...p, file: null }));
+      setHeroImg3((p) => ({ ...p, file: null }));
       setAboutImg((p) => ({ ...p, file: null }));
       setProductsImg((p) => ({ ...p, file: null }));
 
@@ -374,7 +410,8 @@ export default function AdminHomePage() {
     e.target.value = "";
   };
 
-  const cropAspect = cropTarget === "about" ? 4 / 3 : 16 / 9;
+    const cropAspect =
+    cropTarget === "about" ? 4 / 3 : 16 / 9;
 
   const ImageField = ({
     label,
@@ -689,6 +726,23 @@ export default function AdminHomePage() {
             idKey="hero"
             onClear={() => setHeroImg({ preview: null, file: null })}
           />
+                    <ImageField
+            label={isId ? "Latar Hero 2 (opsional)" : "Hero background 2 (optional)"}
+            slot={heroImg2}
+            target="heroBg2"
+            ratio="16/9"
+            idKey="heroBg2"
+            onClear={() => setHeroImg2({ preview: null, file: null })}
+          />
+
+          <ImageField
+            label={isId ? "Latar Hero 3 (opsional)" : "Hero background 3 (optional)"}
+            slot={heroImg3}
+            target="heroBg3"
+            ratio="16/9"
+            idKey="heroBg3"
+            onClear={() => setHeroImg3({ preview: null, file: null })}
+          />
         </section>
 
         {/* ABOUT CARD */}
@@ -835,6 +889,8 @@ export default function AdminHomePage() {
             const preview = URL.createObjectURL(file);
             const slot = { preview, file };
             if (cropTarget === "hero") setHeroImg(slot);
+            if (cropTarget === "heroBg2") setHeroImg2(slot);
+            if (cropTarget === "heroBg3") setHeroImg3(slot);
             if (cropTarget === "about") setAboutImg(slot);
             if (cropTarget === "products") setProductsImg(slot);
             setCropSrc(null);
