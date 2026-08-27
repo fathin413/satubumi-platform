@@ -1,0 +1,138 @@
+"use client";
+
+import Link from "next/link";
+import { ArrowRight } from "lucide-react";
+import { useState, useEffect } from "react";
+
+import ScrollReveal from "../ScrollReveal";
+
+interface HeroSectionProps {
+  lang: string;
+  isId: boolean;
+  title: string;
+  highlight?: string;
+  subtitle: string;
+  images: string[];
+}
+
+export default function HeroSection({
+  lang,
+  isId,
+  title,
+  highlight,
+  subtitle,
+  images,
+}: HeroSectionProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [isMounted, setIsMounted] = useState(false);
+
+  // Logika rotasi gambar & trigger awal untuk animasi zoom
+  useEffect(() => {
+    setIsMounted(true); 
+
+    if (!images || images.length <= 1) return;
+    
+    const interval = setInterval(() => {
+      setCurrentIndex((prevIndex) => (prevIndex + 1) % images.length);
+    }, 6000); 
+    
+    return () => clearInterval(interval);
+  }, [images]);
+
+  return (
+    // Padding top dikurangi dari pt-32 menjadi pt-24 agar lebih dekat dengan header
+    <section className="relative w-full flex flex-col justify-center min-h-[95vh] pt-28 pb-20 z-0 overflow-hidden font-sans">
+      
+      {/* ================= BACKGROUND IMAGE ANIMATION & GREEN FILTER ================= */}
+      <div className="absolute inset-0 z-0 bg-[#01140a] overflow-hidden pointer-events-none">
+        
+        {/* Render gambar dengan perbaikan logika transisi yang dijamin mulus */}
+        {images.map((src, index) => {
+          const isActive = index === currentIndex;
+          
+          return (
+            <div
+              key={index}
+              className="absolute inset-0 w-full h-full"
+              style={{
+                opacity: isActive ? 1 : 0,
+                zIndex: isActive ? 10 : 0,
+                transition: "opacity 2.5s ease-in-out", 
+              }}
+            >
+              <img
+                src={src}
+                alt={`Hero Background ${index + 1}`}
+                className="w-full h-full object-cover"
+                style={{
+                  transform: isMounted && isActive ? "scale(1.15)" : "scale(1)",
+                  transition: "transform 10s linear", 
+                }}
+              />
+            </div>
+          );
+        })}
+
+        {/* Lapis 1: Multiply Emerald super gelap untuk filter hijau pekat */}
+        <div className="absolute inset-0 bg-emerald-950/80 mix-blend-multiply z-20" />
+        
+        {/* Lapis 2: Overlay hijau sangat gelap (nyaris hitam) */}
+        <div className="absolute inset-0 bg-[#02180e]/65 z-20" />
+        
+        {/* Lapis 3: Transisi Mulus ke Section Bawah */}
+        <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#052e16] via-[#052e16]/40 to-transparent z-20" />
+      </div>
+
+      {/* ================= CONTENT CONTAINER ================= */}
+      {/* Margin tambahan (mt-10) dihilangkan agar konten naik ke atas mendekati navbar */}
+      <div className="relative z-30 w-full max-w-[1440px] mx-auto px-4 lg:px-12 flex flex-col items-center justify-center text-center">
+        <ScrollReveal baseClass="opacity-0 translate-y-12" className="flex flex-col items-center relative w-full overflow-hidden">
+          
+          {/* Badge / Eyebrow */}
+          <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full border border-emerald-500/30 bg-[#052e16]/50 backdrop-blur-md mb-8 shadow-sm">
+            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+            <span className="text-[11px] font-bold text-emerald-100 uppercase tracking-[0.25em]">
+              {isId ? "Inisiatif Keberlanjutan" : "Sustainability Initiative"}
+            </span>
+          </div>
+
+          {/* HEADLINE */}
+          <h1 className="w-full flex flex-col items-center font-extrabold text-white leading-[1.05] drop-shadow-2xl mb-8">
+            <span className="whitespace-nowrap text-[clamp(2rem,7vw,6.5rem)] tracking-tight">
+              {title}
+            </span>
+            {highlight && (
+              <span className="whitespace-nowrap font-serif italic font-light text-emerald-400 drop-shadow-xl mt-1 md:mt-3 text-[clamp(2.5rem,8vw,7.5rem)] tracking-tight">
+                {highlight}
+              </span>
+            )}
+          </h1>
+
+          {/* Subtitle */}
+          <p className="text-lg md:text-xl lg:text-2xl text-emerald-50 font-medium leading-relaxed mb-12 max-w-3xl drop-shadow-md whitespace-normal">
+            {subtitle}
+          </p>
+
+          {/* Grup Tombol */}
+          <div className="flex flex-col sm:flex-row items-center gap-5 w-full sm:w-auto">
+            <Link
+              href={`/${lang}/about`}
+              className="w-full sm:w-auto px-8 py-4 bg-emerald-600 text-white text-[15px] font-bold rounded-full hover:bg-emerald-500 hover:scale-105 transition-all duration-300 flex items-center justify-center gap-3 shadow-[0_0_30px_rgba(16,185,129,0.4)] group focus:outline-none focus:ring-4 focus:ring-emerald-500/50"
+            >
+              {isId ? "Pelajari Pendekatan Kami" : "Discover Our Approach"}
+              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+            </Link>
+            
+            <Link
+              href={`/${lang}/products`}
+              className="w-full sm:w-auto px-8 py-4 bg-transparent border border-white/40 text-white text-[15px] font-bold rounded-full hover:bg-white/10 hover:border-white transition-all duration-300 text-center focus:outline-none focus:ring-4 focus:ring-emerald-500/50 backdrop-blur-sm"
+            >
+              {isId ? "Lihat Produk" : "Explore Products"}
+            </Link>
+          </div>
+
+        </ScrollReveal>
+      </div>
+    </section>
+  );
+}

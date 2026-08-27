@@ -2,19 +2,136 @@
 @tailwind components;
 @tailwind utilities;
 
+
 .ProseMirror p {
   margin-bottom: 0.75rem;
 }
+
 .ProseMirror ul {
   list-style: disc;
   padding-left: 1.25rem;
   margin-bottom: 0.75rem;
 }
+
 .ProseMirror ol {
   list-style: decimal;
   padding-left: 1.25rem;
   margin-bottom: 0.75rem;
 }
+
 .ProseMirror:focus {
   outline: none;
+}
+
+
+/* PRODUCT ENGINE ANIMATION */
+
+@keyframes orbit {
+
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+
+}
+
+
+@keyframes orbitReverse {
+
+  from {
+    transform: rotate(360deg);
+  }
+
+  to {
+    transform: rotate(0deg);
+  }
+
+}
+
+
+@keyframes float {
+
+  0%,
+  100% {
+    transform: translateY(0px);
+  }
+
+  50% {
+    transform: translateY(-14px);
+  }
+
+}
+
+
+@keyframes pulseSoft {
+
+  0% {
+    transform: scale(1);
+    opacity: .7;
+  }
+
+  50% {
+    transform: scale(1.15);
+    opacity: .25;
+  }
+
+  100% {
+    transform: scale(1);
+    opacity: .7;
+  }
+
+}
+
+
+.animate-orbit {
+  animation: orbit 30s linear infinite;
+}
+
+
+.animate-orbit-reverse {
+  animation: orbitReverse 18s linear infinite;
+}
+
+
+.animate-float {
+  animation: float 5s ease-in-out infinite;
+}
+
+
+.animate-pulse-soft {
+  animation: pulseSoft 3s ease-in-out infinite;
+}
+
+@keyframes productOrbit {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+
+@keyframes productOrbitReverse {
+  from {
+    transform: rotate(360deg);
+  }
+
+  to {
+    transform: rotate(0deg);
+  }
+}
+
+
+.animate-product-orbit {
+  animation: productOrbit 60s linear infinite;
+}
+
+
+.animate-product-orbit-reverse {
+  animation: productOrbitReverse 60s linear infinite;
 }

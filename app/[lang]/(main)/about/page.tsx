@@ -2,22 +2,24 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import { ArrowRight } from "lucide-react";
 import ScrollReveal from "../../../../components/ScrollReveal";
 import en from "../../../../dictionaries/en.json";
 import id from "../../../../dictionaries/id.json";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+
 const BACKEND_ORIGIN = API_URL.replace(/\/api\/v1\/?$/, "");
 
-const FALLBACK_HERO =
-  "https://images.unsplash.com/photo-1441974231531-c6227db76b6e?auto=format&fit=crop&w=2000&q=80";
-const FALLBACK_BODY =
-  "https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=1000&q=80";
-const FALLBACK_GALLERY = [
-  "https://images.unsplash.com/photo-1448375240586-882707db888b?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1509391366360-2e959784a276?auto=format&fit=crop&w=800&q=80",
-  "https://images.unsplash.com/photo-1497366216548-37526070297c?auto=format&fit=crop&w=800&q=80",
-];
+const FALLBACK_IMAGES = {
+  body: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?w=1200",
+  gallery: [
+    "https://images.unsplash.com/photo-1448375240586-882707db888b?w=1200",
+    "https://images.unsplash.com/photo-1509391366360-2e959784a276?w=900",
+    "https://images.unsplash.com/photo-1497366216548-37526070297c?w=900",
+  ],
+};
 
 type Article = {
   id: number;
@@ -29,306 +31,474 @@ type Article = {
   image_url?: string | null;
 };
 
-function resolveImageUrl(url?: string | null) {
-  if (!url) return null;
+type TeamMember = {
+  name: string;
+  role: string;
+  description: string;
+  image: string;
+};
+
+function resolveImage(url?: string | null, fallback?: string) {
+  if (!url) return fallback || "";
   if (url.startsWith("http")) return url;
   return `${BACKEND_ORIGIN}${url.startsWith("/") ? "" : "/"}${url}`;
 }
 
-function isHtmlContent(content: string) {
-  return /<\/?[a-z][\s\S]*>/i.test(content || "");
-}
-
 function stripHtml(html: string) {
-  return (html || "")
+  return html
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/p>/gi, "\n")
     .replace(/<[^>]+>/g, " ")
     .replace(/&nbsp;/g, " ")
     .replace(/&amp;/g, "&")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">")
-    .replace(/\s+/g, " ")
+    .replace(/[ \t]+/g, " ")
     .trim();
 }
 
-function parseMissionList(content: string): string[] {
-  if (!content) return [];
-  if (isHtmlContent(content)) {
-    const items: string[] = [];
-    const re = /<li[^>]*>([\s\S]*?)<\/li>/gi;
-    let m;
-    while ((m = re.exec(content)) !== null) {
-      const text = stripHtml(m[1]);
-      if (text) items.push(text);
-    }
-    if (items.length) return items;
-    const plain = stripHtml(content);
-    return plain ? [plain] : [];
-  }
-  return content
-    .split("\n")
-    .map((l) => l.trim())
-    .filter(
-      (l) =>
-        l.startsWith("-") ||
-        l.startsWith("•") ||
-        l.startsWith("*") ||
-        /^\d+[\.\)]/.test(l)
-    )
-    .map((l) => l.replace(/^[-•*]\s*/, "").replace(/^\d+[\.\)]\s*/, ""));
+function isHtml(content: string) {
+  return /<\/?[a-z][\s\S]*>/i.test(content);
 }
 
-function ArticleBody({ content }: { content: string }) {
-  if (!content) return null;
-  if (isHtmlContent(content)) {
-    return (
-      <div
-        className="prose prose-lg max-w-none text-slate-600 font-medium leading-relaxed
-          prose-p:mb-5 prose-p:leading-relaxed
-          prose-strong:text-emerald-950 prose-strong:font-bold
-          prose-ul:my-4 prose-li:marker:text-emerald-600"
-        dangerouslySetInnerHTML={{ __html: content }}
-      />
-    );
+function parseMission(content: string) {
+  if (!content) return [];
+
+  if (isHtml(content)) {
+    const result: string[] = [];
+    const regex = /<li[^>]*>([\s\S]*?)<\/li>/gi;
+    let match;
+
+    while ((match = regex.exec(content)) !== null) {
+      const text = stripHtml(match[1]);
+      if (text) result.push(text);
+    }
+    return result;
   }
-  return (
-    <div className="whitespace-pre-line text-lg text-slate-600 leading-relaxed font-medium space-y-4">
-      {content}
-    </div>
-  );
+
+  return content
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .map((item) => item.replace(/^[-•*]\s*/, ""));
 }
 
 export default function AboutPage() {
   const params = useParams();
   const lang = (params?.lang as string) || "en";
   const isId = lang === "id";
-  const dict = lang === "id" ? id : en;
-  const t = (dict as any).about;
 
-  const [mounted, setMounted] = useState(false);
+  const dictionary = lang === "id" ? id : en;
+
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    setMounted(true);
-  }, []);
-
-  useEffect(() => {
-    const load = async () => {
-      setLoading(true);
+    async function load() {
       try {
-        const apiLang = lang === "en" ? "en" : "id";
-        const res = await fetch(`${API_URL}/articles/?lang=${apiLang}`);
-        if (!res.ok) throw new Error("Failed");
-        const data = await res.json();
-        const list: Article[] = Array.isArray(data) ? data : [];
+        const response = await fetch(`${API_URL}/articles/?lang=${lang}`);
+
+        if (!response.ok) {
+          throw new Error("Failed to fetch articles");
+        }
+
+        const data = await response.json();
+
         setArticles(
-          list.filter((a) => a.category === "about" && a.status === "published")
+          Array.isArray(data)
+            ? data.filter(
+                (item: Article) =>
+                  item.category === "about" && item.status === "published"
+              )
+            : []
         );
       } catch {
         setArticles([]);
       } finally {
         setLoading(false);
       }
-    };
+    }
+
     load();
   }, [lang]);
 
-  if (!mounted || loading) {
+  if (loading) {
     return (
-      <main className="bg-emerald-50 min-h-screen flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-emerald-100 border-t-emerald-600 rounded-full animate-spin" />
+      <main className="min-h-screen bg-[#FAFAFA] flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-4 border-emerald-100 border-t-emerald-900 animate-spin" />
       </main>
     );
   }
 
-  const bySlug = (slug: string) => articles.find((a) => a.slug === slug);
+  const find = (slug: string) => articles.find((item) => item.slug === slug);
 
-  const hero = bySlug("about-hero");
-  const body = bySlug("about-body");
-  const vision = bySlug("about-vision");
-  const mission = bySlug("about-mission");
-  const gallery1 = bySlug("about-gallery-1");
-  const gallery2 = bySlug("about-gallery-2");
-  const gallery3 = bySlug("about-gallery-3");
+  const hero = find("about-hero");
+  const body = find("about-body");
+  const vision = find("about-vision");
+  const mission = find("about-mission");
 
-  const heroBg = resolveImageUrl(hero?.image_url) || FALLBACK_HERO;
-  const bodyImage = resolveImageUrl(body?.image_url) || FALLBACK_BODY;
-  const galleryImages = [
-    resolveImageUrl(gallery1?.image_url) || FALLBACK_GALLERY[0],
-    resolveImageUrl(gallery2?.image_url) || FALLBACK_GALLERY[1],
-    resolveImageUrl(gallery3?.image_url) || FALLBACK_GALLERY[2],
+  const gallery = [
+    resolveImage(find("about-gallery-1")?.image_url, FALLBACK_IMAGES.gallery[0]),
+    resolveImage(find("about-gallery-2")?.image_url, FALLBACK_IMAGES.gallery[1]),
+    resolveImage(find("about-gallery-3")?.image_url, FALLBACK_IMAGES.gallery[2]),
   ];
 
-  const heroTitle = hero?.title || (lang === "id" ? "Tentang Kami" : "About");
-  const heroLines = hero?.content
-    ? (isHtmlContent(hero.content) ? stripHtml(hero.content) : hero.content)
-        .split(/\n|·|\|/)
-        .map((s) => s.trim())
-        .filter(Boolean)
-    : [
-        lang === "id"
-          ? "Layanan Advisory Iklim & Keberlanjutan"
-          : "Climate & Sustainability Advisory Services",
-        lang === "id"
-          ? "Membangun Nilai Berkelanjutan untuk Manusia, Alam, dan Bisnis"
-          : "Building Sustainable Value for People, Nature, and Business",
-      ];
-
   const missionItems = mission?.content
-    ? parseMissionList(mission.content)
-    : t?.missions || [];
+    ? parseMission(mission.content)
+    : [];
+
+  const teamMembers: TeamMember[] = [
+    {
+      name: "MF. Fathin Qusyayyi",
+      role: "Founder & Research Lead",
+      description:
+        "Leading sustainable innovation through science, collaboration, and ecosystem restoration.",
+      image: "/assett.jpg",
+    },
+    {
+      name: "Rachman Abi",
+      role: "Environmental Specialist",
+      description:
+        "Developing practical solutions for sustainable environmental impact.",
+      image: "/team2.jpg",
+    },
+    {
+      name: "Raka Andhika",
+      role: "Community & Partnership",
+      description:
+        "Building collaboration between communities, researchers, and organizations.",
+      image: "/team3.jpg",
+    },
+    {
+      name: "Muh. Ryan Syah",
+      role: "Research Associate",
+      description:
+        "Supporting research initiatives and knowledge development for sustainable solutions.",
+      image: "/team4.jpg",
+    },
+    {
+      name: "Irfan Fauzi",
+      role: "Field Coordinator",
+      description:
+        "Coordinating field activities and ensuring effective implementation on the ground.",
+      image: "/team5.jpg",
+    },
+    {
+      name: "Mawardi",
+      role: "Operations Support",
+      description:
+        "Supporting operational processes and team collaboration across projects.",
+      image: "/team6.jpg",
+    },
+  ];
 
   return (
-    <main className="bg-emerald-50/40 min-h-screen selection:bg-emerald-200 selection:text-emerald-900 font-sans">
-      {/* HERO */}
-      <section className="relative min-h-[70vh] md:min-h-[78vh] flex items-center justify-center overflow-hidden">
+    <main className="bg-[#FAFAFA] text-slate-900 overflow-hidden font-sans">
+      
+      {/* ================= HERO ================= */}
+      <section className="relative min-h-screen flex items-center">
         <img
-          src={heroBg}
-          alt=""
+          src="/asset1.jpeg"
+          alt="Satubumi"
           className="absolute inset-0 w-full h-full object-cover"
         />
-        <div className="absolute inset-0 bg-gradient-to-b from-emerald-950/45 via-emerald-900/30 to-emerald-50" />
-        <div className="absolute inset-x-0 bottom-0 h-28 bg-gradient-to-t from-emerald-50 via-emerald-50/90 to-transparent" />
+        <div className="absolute inset-0 bg-gradient-to-r from-emerald-950/95 via-emerald-950/70 to-emerald-950/20" />
+        <div className="absolute -right-32 top-20 w-[500px] h-[500px] rounded-full bg-emerald-400/20 blur-[120px]" />
 
-        <div className="relative z-10 max-w-4xl mx-auto px-6 pt-28 pb-24 text-center">
+        {/* Blur sangat rendah agar tidak menabrak teks */}
+        <div className="absolute inset-x-0 bottom-0 h-16 md:h-20 bg-gradient-to-t from-white to-transparent pointer-events-none z-10" />
+
+        <div className="relative z-10 max-w-[1440px] mx-auto w-full px-6 lg:px-12">
           <ScrollReveal>
-            <h1 className="text-5xl md:text-6xl lg:text-7xl font-extrabold text-white tracking-tight drop-shadow-sm mb-6">
-              {heroTitle}
-            </h1>
-            <div className="space-y-2">
-              {heroLines.slice(0, 2).map((line, i) => (
-                <p
-                  key={i}
-                  className={`text-white/95 font-medium drop-shadow-sm ${
-                    i === 0
-                      ? "text-lg md:text-xl"
-                      : "text-base md:text-lg text-white/85"
-                  }`}
-                >
-                  {line}
-                </p>
-              ))}
+            <div className="inline-flex items-center gap-3 px-5 py-2.5 rounded-full border border-emerald-500/30 bg-[#052e16]/50 backdrop-blur-md mb-8 shadow-sm">
+              <span className="text-[11px] font-bold text-emerald-100 uppercase tracking-[0.25em]">
+                {isId ? "TENTANG SATUBUMI" : "ABOUT SATUBUMI"}
+              </span>
             </div>
+            
+            <h1 className="max-w-4xl text-5xl md:text-7xl lg:text-8xl leading-[1.05] font-extrabold tracking-tight text-white drop-shadow-md">
+              {hero?.title || "Nature Intelligence"}
+            </h1>
+            <p className="mt-8 max-w-xl text-base md:text-xl leading-relaxed text-emerald-50/90 font-medium whitespace-pre-line">
+              {hero?.content ? stripHtml(hero.content) : ""}
+            </p>
           </ScrollReveal>
         </div>
       </section>
 
-      {/* BODY */}
-      <section className="relative z-10 bg-emerald-50/40 px-6 pb-16 md:pb-24 -mt-4">
-        <div className="max-w-[1200px] mx-auto">
-          <div className="grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
-            <ScrollReveal>
-              <div>
-                <h2 className="text-3xl md:text-4xl font-extrabold text-emerald-950 tracking-tight mb-6">
-                  {body?.title || "Satubumi"}
-                </h2>
-                {body?.content ? (
-                  <ArticleBody content={body.content} />
-                ) : (
-                  <div className="space-y-5 text-lg text-slate-600 font-medium leading-relaxed">
-                    <p>{t?.intro}</p>
-                    <p>{t?.body_1}</p>
-                    <p>{t?.body_2}</p>
-                  </div>
-                )}
+      {/* ================= WHO WE ARE ================= */}
+      <section className="relative pt-20 pb-16 md:pt-28 md:pb-20 bg-white">
+        
+        <div className="relative z-10 max-w-[1440px] mx-auto px-6 lg:px-12">
+          <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-12 lg:gap-20 items-start">
+            
+            <ScrollReveal className="flex flex-col">
+              <div className="flex items-center gap-4 mb-5">
+                <div className="w-10 h-[2px] bg-emerald-600" />
+                <p className="text-[11px] uppercase tracking-[0.25em] text-emerald-600 font-extrabold">
+                  {isId ? "Siapa Kami" : "Who We Are"}
+                </p>
+              </div>
+              <h2 className="text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.15] text-emerald-950 mb-8 md:mb-10">
+                {body?.title ||
+                  "Creating sustainable solutions through knowledge and collaboration."}
+              </h2>
+              
+              <div className="text-lg md:text-xl leading-relaxed text-slate-600 font-medium text-justify flex flex-col gap-5">
+                {body?.content
+                  ? stripHtml(body.content)
+                      .split(/\n+/)
+                      .filter((p) => p.trim() !== "")
+                      .map((p, idx) => <p key={idx}>{p}</p>)
+                  : null}
               </div>
             </ScrollReveal>
 
             <ScrollReveal delay="delay-200">
-              <div className="relative aspect-[4/3] w-full rounded-[1.75rem] overflow-hidden shadow-xl shadow-emerald-900/10 border border-emerald-100/80">
+              <div className="relative mt-8 lg:mt-0">
+                <div className="absolute -inset-4 bg-emerald-100 rounded-[2.5rem] -rotate-2" />
                 <img
-                  src={bodyImage}
-                  alt={body?.title || "Satubumi"}
-                  className="w-full h-full object-cover"
+                  src={resolveImage(body?.image_url, FALLBACK_IMAGES.body)}
+                  alt="Satubumi"
+                  className="relative w-full aspect-[4/5] object-cover rounded-[2rem] shadow-xl"
                 />
               </div>
             </ScrollReveal>
+
           </div>
         </div>
+
+        {/* Efek Blur Transisi ke section Visi Misi */}
+        <div className="absolute inset-x-0 bottom-0 h-24 md:h-32 bg-gradient-to-t from-[#02180e] to-transparent pointer-events-none z-20" />
       </section>
 
-      {/* GALERI */}
-      <section className="px-6 pb-16 md:pb-24 bg-emerald-50/40">
-        <div className="max-w-[1200px] mx-auto grid grid-cols-1 sm:grid-cols-3 gap-5 md:gap-6">
-          {galleryImages.map((src, i) => (
-            <ScrollReveal key={i} delay={`delay-${(i + 1) * 100}`}>
-              <div className="relative aspect-[4/3] rounded-2xl overflow-hidden shadow-md border border-emerald-100/60 group">
-                <img
-                  src={src}
-                  alt=""
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                />
-              </div>
-            </ScrollReveal>
-          ))}
+      {/* ================= VISION & MISSION ================= */}
+      {/* Padding section dikurangi agar lebih compact (tidak terlalu besar) */}
+      <section className="relative pt-16 pb-20 md:pt-24 md:pb-28 overflow-hidden bg-[#02180e]">
+        
+        {/* Background Image */}
+        <div className="absolute inset-0 z-0">
+          <img
+            src={gallery[0]}
+            alt="Vision Background"
+            className="w-full h-full object-cover"
+          />
+          <div className="absolute inset-0 bg-emerald-950/80 mix-blend-multiply pointer-events-none" />
+          <div className="absolute inset-0 bg-[#02180e]/85 pointer-events-none" />
         </div>
-      </section>
 
-      {/* VISI — panel hijau */}
-<section className="w-full bg-emerald-950 relative z-20 py-14 md:py-18 overflow-hidden">
-  <div className="absolute top-0 left-1/2 w-[500px] h-[500px] bg-emerald-500/10 rounded-full blur-3xl -translate-x-1/2 -translate-y-1/2 pointer-events-none" />
-
-  <div className="max-w-[1100px] mx-auto px-6 relative z-10">
-    <ScrollReveal>
-      <h3 className="text-emerald-400 font-extrabold tracking-tight text-3xl md:text-4xl lg:text-5xl mb-5 md:mb-6">
-        {vision?.title ||
-          t?.vision_label ||
-          (isId ? "Visi Perusahaan" : "Our Vision")}
-      </h3>
-
-      <div className="text-2xl md:text-3xl lg:text-[2.15rem] font-medium text-white leading-[1.45] tracking-tight">
-        {vision?.content ? (
-          isHtmlContent(vision.content) ? (
-            <div
-              className="prose prose-invert max-w-none prose-p:my-0 prose-p:text-2xl md:prose-p:text-3xl prose-p:leading-[1.45] prose-strong:text-emerald-300"
-              dangerouslySetInnerHTML={{ __html: vision.content }}
-            />
-          ) : (
-            <div className="space-y-3">
-              {vision.content.split("\n").map((paragraph, idx) =>
-                paragraph.trim() ? <p key={idx}>{paragraph}</p> : null
-              )}
+        <div className="relative z-10 max-w-[1440px] mx-auto px-6 lg:px-12">
+          <div className="mb-14 md:mb-20">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="w-12 h-[2px] bg-emerald-500" />
+              <p className="text-[11px] uppercase tracking-[0.25em] text-emerald-400 font-extrabold">
+                {isId ? "Visi & Misi" : "Vision & Mission"}
+              </p>
             </div>
-          )
-        ) : (
-          <p>&ldquo;{t?.vision}&rdquo;</p>
-        )}
-      </div>
-    </ScrollReveal>
-  </div>
-</section>
-
-{/* MISI — nomor bulat kiri, teks rata kanan */}
-<section className="w-full bg-white relative z-20 py-12 md:py-16 border-b border-emerald-100/60">
-  <div className="max-w-[1000px] mx-auto px-6">
-    <ScrollReveal>
-      <h3 className="text-emerald-800 font-extrabold tracking-tight text-3xl md:text-4xl lg:text-5xl border-r-4 border-emerald-600 pr-4 md:pr-5 mb-6 md:mb-8 text-right">
-        {mission?.title ||
-          t?.mission_label ||
-          (isId ? "Misi Kami" : "Our Mission")}
-      </h3>
-
-      <div className="space-y-0">
-        {missionItems.map((item: string, index: number) => (
-          <div
-            key={index}
-            className="group flex items-start gap-4 md:gap-8 py-4 md:py-5 border-b border-emerald-100 last:border-b-0"
-          >
-            {/* Frame bulat nomor — kiri */}
-            <span className="flex items-center justify-center w-10 h-10 md:w-11 md:h-11 shrink-0 rounded-full border-2 border-emerald-600 text-emerald-700 font-extrabold text-sm md:text-base tabular-nums">
-              {String(index + 1).padStart(2, "0")}
-            </span>
-
-            {/* Teks — kanan */}
-            <p className="flex-1 text-emerald-950 text-lg md:text-xl font-medium leading-snug text-right group-hover:text-emerald-900 transition-colors pt-1.5">
-              {item}
-            </p>
+            <h2 className="max-w-3xl text-4xl md:text-5xl lg:text-6xl font-extrabold tracking-tight leading-[1.1] text-white">
+              {isId ? "Apa yang mendorong kami" : "What drives us forward"}
+            </h2>
           </div>
-        ))}
-      </div>
-    </ScrollReveal>
-  </div>
-</section>
+
+          <div className="grid lg:grid-cols-2 gap-8 lg:gap-12 items-start">
+            
+            {/* KIRI: VISION + 2 GAMBAR */}
+            <div className="space-y-6">
+              <ScrollReveal>
+                <div className="bg-white/5 backdrop-blur-md rounded-[2rem] p-8 md:p-10 border border-white/10 shadow-xl">
+                  <div className="flex items-center gap-4 mb-8">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-400/20">
+                      <span className="text-emerald-950 font-extrabold text-2xl">V</span>
+                    </div>
+                    <h3 className="text-2xl font-extrabold text-white">
+                      {isId ? "Visi Kami" : "Our Vision"}
+                    </h3>
+                  </div>
+                  <p className="text-lg md:text-xl leading-relaxed text-emerald-100/90 font-medium whitespace-pre-line">
+                    {vision?.content
+                      ? stripHtml(vision.content)
+                      : "Regenerating ecosystems through knowledge."}
+                  </p>
+                </div>
+              </ScrollReveal>
+
+              <div className="grid grid-cols-2 gap-4">
+                <ScrollReveal>
+                  <div className="overflow-hidden rounded-[1.5rem] shadow-lg">
+                    <img
+                      src={gallery[1]}
+                      alt="Satubumi"
+                      className="w-full aspect-[4/3] object-cover hover:scale-105 transition-transform duration-700"
+                    />
+                  </div>
+                </ScrollReveal>
+                <ScrollReveal delay="delay-100">
+                  <div className="overflow-hidden rounded-[1.5rem] shadow-lg">
+                    <img
+                      src={gallery[2]}
+                      alt="Satubumi"
+                      className="w-full aspect-[4/3] object-cover hover:scale-105 transition-transform duration-700"
+                    />
+                  </div>
+                </ScrollReveal>
+              </div>
+            </div>
+
+            {/* KANAN: MISSION */}
+            <ScrollReveal delay="delay-100">
+              <div className="bg-white/5 backdrop-blur-md rounded-[2rem] p-8 md:p-10 border border-white/10 shadow-xl">
+                <div className="flex items-center gap-4 mb-9">
+                  <div className="w-14 h-14 rounded-2xl bg-emerald-400 flex items-center justify-center shadow-lg shadow-emerald-400/20">
+                    <span className="text-emerald-950 font-extrabold text-2xl">M</span>
+                  </div>
+                  <h3 className="text-2xl font-extrabold text-white">
+                    {isId ? "Misi Kami" : "Our Mission"}
+                  </h3>
+                </div>
+
+                <div className="space-y-6">
+                  {missionItems.map((item, index) => (
+                    <div key={index} className="flex gap-5 items-start">
+                      <div className="w-10 h-10 rounded-full bg-emerald-400/20 border border-emerald-400/30 text-emerald-300 flex items-center justify-center text-sm font-extrabold shrink-0 mt-1">
+                        {index + 1}
+                      </div>
+                      <p className="text-lg leading-relaxed text-emerald-100/90 font-medium">
+                        {item}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </ScrollReveal>
+
+          </div>
+        </div>
+      </section>
+
+      {/* ================= FULL SCREEN DIVIDER ================= */}
+      {/* Tinggi divider dipotong agar section tidak terlalu boros */}
+      <section className="relative w-full h-[25vh] md:h-[30vh] flex items-center justify-center overflow-hidden bg-[#02180e]">
+        
+        <div className="absolute inset-0 w-full h-full z-0">
+          <img
+            src={gallery[0]}
+            alt="Nature Divider"
+            className="w-full h-full object-cover"
+          />
+        </div>
+        
+        <div className="absolute inset-0 bg-emerald-950/80 mix-blend-multiply z-10 pointer-events-none" />
+        <div className="absolute inset-0 bg-[#02180e]/65 z-10 pointer-events-none" />
+        
+        <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-b from-[#02180e] to-transparent z-10 pointer-events-none" />
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-[#FAFAFA] via-[#FAFAFA]/70 to-transparent z-10 pointer-events-none" />
+      </section>
+
+      {/* ================= MEET OUR TEAM ================= */}
+      <section className="relative pb-24 md:pb-32 bg-[#FAFAFA] z-20 pt-0">
+        <div className="max-w-[1440px] mx-auto px-6 lg:px-12">
+          
+          <ScrollReveal>
+            <div className="mb-14 md:mb-20">
+              <div className="flex items-center gap-4 mb-5">
+                <div className="w-10 h-[2px] bg-emerald-600" />
+                <p className="text-[11px] font-extrabold uppercase tracking-[0.25em] text-emerald-600">
+                  {isId ? "Tim Kami" : "Meet Our Team"}
+                </p>
+              </div>
+              
+              <div className="flex flex-col gap-4">
+                <h2 className="max-w-2xl text-4xl md:text-5xl lg:text-[3.5rem] font-extrabold tracking-tight leading-[1.1] text-emerald-950">
+                  {isId ? "Orang-orang di balik misi kami." : "People behind the mission."}
+                </h2>
+                <p className="max-w-2xl text-base md:text-lg leading-relaxed text-slate-600 font-medium">
+                  {isId 
+                    ? "Sebuah tim multidisiplin yang memadukan sains, pengalaman lapangan, dan strategi keberlanjutan."
+                    : "A multidisciplinary team working together through science, sustainability, and collaboration."}
+                </p>
+              </div>
+            </div>
+          </ScrollReveal>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-12 gap-y-16">
+            {teamMembers.map((member, index) => (
+              <ScrollReveal key={index} delay={`delay-${index * 100}`}>
+                <article className="group flex flex-col">
+                  
+                  <div className="relative w-full aspect-square overflow-hidden rounded-[2rem] bg-slate-200 mb-6 shadow-md">
+                    <img
+                      src={member.image}
+                      alt={member.name}
+                      className="w-full h-full object-cover filter grayscale-[35%] group-hover:grayscale-0 transition-transform duration-[1.5s] ease-out group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-gradient-to-t from-emerald-950/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
+                  </div>
+
+                  <div className="flex flex-col px-2">
+                    <h3 className="text-[1.35rem] font-extrabold tracking-tight text-emerald-950 mb-1.5 group-hover:text-emerald-700 transition-colors">
+                      {member.name}
+                    </h3>
+                    
+                    <p className="text-[11px] font-extrabold uppercase tracking-[0.2em] text-emerald-600 mb-4">
+                      {member.role}
+                    </p>
+                    
+                    <div className="w-8 h-[3px] bg-emerald-200 mb-4 group-hover:w-16 group-hover:bg-emerald-500 transition-all duration-500 rounded-full" />
+                    
+                    <p className="text-[14px] md:text-[15px] text-slate-600 font-medium leading-relaxed">
+                      {member.description}
+                    </p>
+                  </div>
+
+                </article>
+              </ScrollReveal>
+            ))}
+          </div>
+
+        </div>
+
+        {/* Efek Blur Transisi ke section Gallery (Putih Bersih) */}
+        <div className="absolute inset-x-0 bottom-0 h-32 bg-gradient-to-t from-white to-transparent pointer-events-none z-10" />
+      </section>
+
+      {/* ================= GALLERY BOTTOM ================= */}
+      {/* (Kini menjadi penutup halaman tanpa ada section closing) */}
+      <section className="pt-24 pb-32 md:pt-28 md:pb-40 bg-white">
+        <div className="max-w-[1440px] mx-auto px-6 lg:px-12">
+          <div className="grid md:grid-cols-12 gap-6">
+            
+            <div className="md:col-span-7">
+              <ScrollReveal>
+                <img
+                  src={gallery[0]}
+                  alt="Satubumi gallery"
+                  className="w-full aspect-[4/3] object-cover rounded-[2rem] shadow-lg"
+                />
+              </ScrollReveal>
+            </div>
+
+            <div className="md:col-span-5 space-y-6">
+              <ScrollReveal delay="delay-100">
+                <img
+                  src={gallery[1]}
+                  alt="Satubumi gallery"
+                  className="w-full aspect-square object-cover rounded-[2rem] shadow-lg"
+                />
+              </ScrollReveal>
+
+              {/* Min-height dihapus, diganti p-8 md:p-10 agar otomatis memeluk text (Fit to text) */}
+              <ScrollReveal delay="delay-200">
+                <div className="rounded-[2rem] bg-emerald-950 p-8 md:p-10 shadow-xl relative overflow-hidden flex items-center">
+                  <div className="absolute -right-20 -top-20 w-60 h-60 bg-emerald-500/20 blur-[60px] rounded-full pointer-events-none" />
+                  <p className="text-2xl md:text-3xl font-extrabold tracking-tight leading-[1.2] text-white relative z-10">
+                    Responsible innovation begins with understanding nature.
+                  </p>
+                </div>
+              </ScrollReveal>
+            </div>
+
+          </div>
+        </div>
+      </section>
+      
     </main>
   );
 }

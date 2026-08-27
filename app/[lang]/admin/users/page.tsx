@@ -18,9 +18,11 @@ import {
   Mail,
   Phone,
   Lock,
+  Camera,
 } from "lucide-react";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
 type UserItem = {
   id: number;
@@ -29,6 +31,7 @@ type UserItem = {
   role: string;
   phone_number?: string | null;
   is_active?: boolean;
+  profile_image?: string | null;
 };
 
 const emptyForm = {
@@ -61,19 +64,60 @@ export default function AdminUsersPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
+  
+  // States untuk UI
   const [showForm, setShowForm] = useState(false);
   const [editingUser, setEditingUser] = useState<UserItem | null>(null);
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
+  
+  // Dropdown States
   const [roleOpen, setRoleOpen] = useState(false);
-
+  const [filterOpen, setFilterOpen] = useState(false);
+  
+  const [profileImage, setProfileImage] = useState<File | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [userToDelete, setUserToDelete] = useState<UserItem | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
-  const [filterRole, setFilterRole] = useState<string>("all");
+  const [filterRole, setFilterRole] = useState("all");
+
+  const filterOptions = [
+    { value: "all", label: isId ? "Semua Role" : "All Roles" },
+    { value: "super_admin", label: "Super Admin" },
+    { value: "admin", label: "Admin" },
+    { value: "client", label: "Client" },
+  ];
 
   const token = () => localStorage.getItem("access_token");
 
+  const getImageUrl = (path?: string | null) => {
+    if (!path) return null;
+    if (path.startsWith("blob:") || path.startsWith("http")) return path;
+    return `${API_URL.replace("/api/v1", "")}${path.startsWith("/") ? "" : "/"}${path}`;
+  };
+
+  const uploadProfileImage = async (userId: number) => {
+    if (!profileImage) return;
+
+    const formData = new FormData();
+    formData.append("file", profileImage);
+
+    const res = await fetch(`${API_URL}/users/${userId}/profile-image`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${token()}`,
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      throw new Error(
+        isId ? "Gagal upload foto profil" : "Failed to upload profile image"
+      );
+    }
+  };
+
+  // Auto-dismiss popup modal
   useEffect(() => {
     if (success || (error && !userToDelete)) {
       const timer = setTimeout(() => {
@@ -87,14 +131,27 @@ export default function AdminUsersPage() {
   const loadUsers = async () => {
     try {
       const res = await fetch(`${API_URL}/users/`, {
-        headers: { Authorization: `Bearer ${token()}` },
+        headers: {
+          Authorization: `Bearer ${token()}`,
+        },
       });
+
       if (res.status === 403) {
-        setError(isId ? "Hanya Super Admin yang dapat mengakses." : "Super Admin only.");
+        setError(
+          isId
+            ? "Hanya Super Admin yang dapat mengakses."
+            : "Super Admin only."
+        );
         setUsers([]);
         return;
       }
-      if (!res.ok) throw new Error(isId ? "Gagal memuat pengguna" : "Failed to load users");
+
+      if (!res.ok) {
+        throw new Error(
+          isId ? "Gagal memuat pengguna" : "Failed to load users"
+        );
+      }
+
       const data = await res.json();
       setUsers(Array.isArray(data) ? data : []);
     } catch (err: any) {
@@ -111,31 +168,44 @@ export default function AdminUsersPage() {
         router.push(`/${lang}/login`);
         return;
       }
+
       try {
         const meRes = await fetch(`${API_URL}/auth/me`, {
-          headers: { Authorization: `Bearer ${t}` },
+          headers: {
+            Authorization: `Bearer ${t}`,
+          },
         });
+
         if (!meRes.ok) {
           router.push(`/${lang}/login`);
           return;
         }
+
         const me = await meRes.json();
         if (me.role !== "super_admin") {
-          setError(isId ? "Hanya Super Admin yang dapat mengakses." : "Super Admin only.");
+          setError(
+            isId
+              ? "Hanya Super Admin yang dapat mengakses."
+              : "Super Admin only."
+          );
           setLoading(false);
           return;
         }
+
         await loadUsers();
       } catch {
         router.push(`/${lang}/login`);
       }
     };
+
     init();
   }, [lang, router, isId]);
 
   const openCreate = () => {
     setEditingUser(null);
     setForm(emptyForm);
+    setProfileImage(null);
+    setPreviewImage(null);
     setShowForm(true);
     setError(null);
     setSuccess(null);
@@ -151,6 +221,8 @@ export default function AdminUsersPage() {
       phone_number: user.phone_number || "",
       role: user.role || "client",
     });
+    setProfileImage(null);
+    setPreviewImage(user.profile_image || null);
     setShowForm(true);
     setError(null);
     setSuccess(null);
@@ -162,6 +234,8 @@ export default function AdminUsersPage() {
     setShowForm(false);
     setEditingUser(null);
     setForm(emptyForm);
+    setProfileImage(null);
+    setPreviewImage(null);
     setRoleOpen(false);
   };
 
@@ -179,6 +253,7 @@ export default function AdminUsersPage() {
           phone_number: form.phone_number,
           role: form.role,
         };
+
         if (form.password.trim()) {
           payload.password = form.password;
         }
@@ -194,15 +269,19 @@ export default function AdminUsersPage() {
 
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          let msg = isId ? "Gagal memperbarui pengguna" : "Failed to update user";
-          if (typeof data.detail === "string") msg = data.detail;
-          else if (Array.isArray(data.detail)) {
-            msg = data.detail.map((d: any) => d.msg).join(", ");
-          }
-          throw new Error(msg);
+          throw new Error(
+            typeof data.detail === "string"
+              ? data.detail
+              : isId
+                ? "Gagal memperbarui pengguna"
+                : "Failed to update user"
+          );
         }
 
-        setSuccess(isId ? "Pengguna berhasil diperbarui!" : "User successfully updated!");
+        await uploadProfileImage(editingUser.id);
+        setSuccess(
+          isId ? "Pengguna berhasil diperbarui!" : "User successfully updated!"
+        );
       } else {
         const res = await fetch(`${API_URL}/users/`, {
           method: "POST",
@@ -221,15 +300,20 @@ export default function AdminUsersPage() {
 
         if (!res.ok) {
           const data = await res.json().catch(() => ({}));
-          let msg = isId ? "Gagal membuat pengguna" : "Failed to create user";
-          if (typeof data.detail === "string") msg = data.detail;
-          else if (Array.isArray(data.detail)) {
-            msg = data.detail.map((d: any) => d.msg).join(", ");
-          }
-          throw new Error(msg);
+          throw new Error(
+            typeof data.detail === "string"
+              ? data.detail
+              : isId
+                ? "Gagal membuat pengguna"
+                : "Failed to create user"
+          );
         }
 
-        setSuccess(isId ? "Pengguna berhasil dibuat!" : "User successfully created!");
+        const createdUser = await res.json();
+        await uploadProfileImage(createdUser.id);
+        setSuccess(
+          isId ? "Pengguna berhasil dibuat!" : "User successfully created!"
+        );
       }
 
       closeForm();
@@ -241,13 +325,7 @@ export default function AdminUsersPage() {
     }
   };
 
-  const initiateDelete = (user: UserItem) => {
-    setUserToDelete(user);
-    setError(null);
-    setSuccess(null);
-  };
-
-  const confirmDelete = async () => {
+  const handleDelete = async () => {
     if (!userToDelete) return;
 
     setDeletingId(userToDelete.id);
@@ -256,14 +334,22 @@ export default function AdminUsersPage() {
     try {
       const res = await fetch(`${API_URL}/users/${userToDelete.id}`, {
         method: "DELETE",
-        headers: { Authorization: `Bearer ${token()}` },
+        headers: {
+          Authorization: `Bearer ${token()}`,
+        },
       });
-      if (!res.ok && res.status !== 204) {
-        throw new Error(isId ? "Gagal menghapus pengguna" : "Failed to delete user");
+
+      if (!res.ok) {
+        throw new Error(
+          isId ? "Gagal menghapus pengguna" : "Failed to delete user"
+        );
       }
-      setUsers((prev) => prev.filter((u) => u.id !== userToDelete.id));
-      setSuccess(isId ? "Pengguna berhasil dihapus!" : "User successfully deleted!");
+
+      setSuccess(
+        isId ? "Pengguna berhasil dihapus!" : "User successfully deleted!"
+      );
       setUserToDelete(null);
+      await loadUsers();
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -271,96 +357,118 @@ export default function AdminUsersPage() {
     }
   };
 
-  const getRoleStyle = (role: string) => {
-    switch (role) {
-      case "super_admin":
-        return {
-          card: "bg-rose-50/80 border-rose-100 hover:bg-rose-50 hover:border-rose-200 hover:shadow-[0_8px_30px_-12px_rgba(225,29,72,0.22)]",
-          avatarBg: "bg-rose-100 border-rose-200",
-          avatarText: "text-rose-700",
-          badgeBg: "bg-white/90 border-rose-200",
-          badgeText: "text-rose-700",
-          icon: Crown,
-        };
-      case "admin":
-        return {
-          card: "bg-amber-50/80 border-amber-100 hover:bg-amber-50 hover:border-amber-200 hover:shadow-[0_8px_30px_-12px_rgba(245,158,11,0.22)]",
-          avatarBg: "bg-amber-100 border-amber-200",
-          avatarText: "text-amber-700",
-          badgeBg: "bg-white/90 border-amber-200",
-          badgeText: "text-amber-700",
-          icon: ShieldCheck,
-        };
-      default:
-        return {
-          card: "bg-emerald-50/80 border-emerald-100 hover:bg-emerald-50 hover:border-emerald-200 hover:shadow-[0_8px_30px_-12px_rgba(16,185,129,0.22)]",
-          avatarBg: "bg-emerald-100 border-emerald-200",
-          avatarText: "text-emerald-700",
-          badgeBg: "bg-white/90 border-emerald-200",
-          badgeText: "text-emerald-700",
-          icon: UserIcon,
-        };
-    }
-  };
+  const filteredUsers = users
+    .filter((u) => (filterRole === "all" ? true : u.role === filterRole))
+    .sort(
+      (a, b) =>
+        (rolePriority[a.role] || 99) - (rolePriority[b.role] || 99)
+    );
 
-  const processedUsers = users
-    .filter((u) => filterRole === "all" || u.role === filterRole)
-    .sort((a, b) => (rolePriority[a.role] || 99) - (rolePriority[b.role] || 99));
+  const roleBadge = (role: string) => {
+    if (role === "super_admin") {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-amber-100 text-amber-800 shadow-sm">
+          <Crown className="w-3 h-3" />
+          Super Admin
+        </span>
+      );
+    }
+    if (role === "admin") {
+      return (
+        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-emerald-100 text-emerald-800 shadow-sm">
+          <ShieldCheck className="w-3 h-3" />
+          Admin
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider bg-slate-100 text-slate-700 shadow-sm">
+        <UserIcon className="w-3 h-3" />
+        Client
+      </span>
+    );
+  };
 
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] animate-in fade-in zoom-in-95 duration-500 ease-out">
-        <div className="w-16 h-16 relative flex items-center justify-center mb-4">
-          <div className="absolute inset-0 border-4 border-slate-100 rounded-full" />
-          <div className="absolute inset-0 border-4 border-emerald-500 border-t-transparent rounded-full animate-spin" />
-          <Users className="w-6 h-6 text-emerald-500 animate-pulse" />
-        </div>
-        <p className="text-[12px] font-bold text-slate-400 uppercase tracking-widest animate-pulse">
-          {isId ? "Memuat Pengguna..." : "Loading Users..."}
-        </p>
+      <div className="min-h-[60vh] flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full border-4 border-emerald-100 border-t-emerald-600 animate-spin" />
       </div>
     );
   }
 
+  // Input styling yang lebih kecil & proporsional
+  const inputClassName = "w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all duration-200 shadow-sm bg-slate-50 focus:bg-white text-slate-800 text-sm font-medium";
+
   return (
-    <div className="relative pb-12">
-      {((error && !userToDelete) || success) && (
+    // Padding atas dikurangi (pt-0 atau pt-2) dan margin atas negatif (-mt-4 atau -mt-6) agar menempel/mendekati header
+    <div className="max-w-5xl mx-auto px-4 pb-8 pt-0 md:-mt-4 font-sans selection:bg-emerald-200">
+      
+      {/* HEADER CARD: Skala diturunkan (p-6, rounded-2xl) */}
+      <div className="bg-white rounded-2xl p-5 md:p-6 shadow-sm border border-slate-100 mb-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-600 flex items-center justify-center shadow-inner shrink-0">
+            <Users className="w-5 h-5" />
+          </div>
+          <div>
+            <h1 className="text-xl md:text-2xl font-bold text-slate-900 tracking-tight">
+              {isId ? "Manajemen Pengguna" : "User Management"}
+            </h1>
+            <p className="text-xs md:text-sm text-slate-500 font-medium mt-0.5">
+              {isId
+                ? "Kelola akun, role, dan foto profil pengguna."
+                : "Manage accounts, roles, and profile photos."}
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={openCreate}
+          className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-500 hover:shadow-md transition-all duration-200"
+        >
+          <Plus className="w-4 h-4" />
+          {isId ? "Tambah Pengguna" : "Add User"}
+        </button>
+      </div>
+
+      {/* GLOBAL POPUP MODAL NOTIFICATION */}
+      {(error || success) && userToDelete === null && (
         <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden p-8 text-center relative animate-in zoom-in-[0.5] fade-in duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden p-8 text-center relative animate-in zoom-in-[0.5] fade-in duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
             {error ? (
               <>
-                <div className="w-20 h-20 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-rose-100 relative">
+                <div className="w-16 h-16 bg-rose-50 rounded-full flex items-center justify-center mx-auto mb-5 border border-rose-100 relative">
                   <div className="absolute inset-0 rounded-full border-2 border-rose-200 animate-ping opacity-50 duration-1000" />
-                  <AlertTriangle className="w-10 h-10 text-rose-500 relative z-10" />
+                  <AlertTriangle className="w-8 h-8 text-rose-500 relative z-10" />
                 </div>
-                <h3 className="text-2xl font-extrabold text-slate-800 mb-2 tracking-tight">
+                <h3 className="text-xl font-bold text-slate-800 mb-2 tracking-tight">
                   {isId ? "Terjadi Kesalahan" : "Action Failed"}
                 </h3>
-                <p className="text-[14px] text-slate-500 font-medium mb-8 leading-relaxed px-2">
+                <p className="text-[13px] text-slate-500 font-medium mb-6 leading-relaxed px-2">
                   {error}
                 </p>
                 <button
                   onClick={() => setError(null)}
-                  className="w-full py-4 bg-rose-50 border border-rose-100 text-rose-600 font-bold rounded-2xl hover:bg-rose-100 hover:text-rose-700 transition-all duration-300 active:scale-95"
+                  className="w-full py-3 bg-rose-50 border border-rose-100 text-rose-600 font-bold rounded-xl hover:bg-rose-100 hover:text-rose-700 transition-all duration-300 active:scale-95 text-sm"
                 >
                   {isId ? "Tutup Modal" : "Close"}
                 </button>
               </>
             ) : (
               <>
-                <div className="w-20 h-20 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-6 border border-emerald-100 relative">
+                <div className="w-16 h-16 bg-emerald-50 rounded-full flex items-center justify-center mx-auto mb-5 border border-emerald-100 relative">
                   <div className="absolute inset-0 rounded-full border-2 border-emerald-200 animate-ping opacity-50 duration-1000" />
-                  <CheckCircle2 className="w-10 h-10 text-emerald-500 relative z-10" />
+                  <CheckCircle2 className="w-8 h-8 text-emerald-500 relative z-10" />
                 </div>
-                <h3 className="text-2xl font-extrabold text-slate-800 mb-2 tracking-tight">
+                <h3 className="text-xl font-bold text-slate-800 mb-2 tracking-tight">
                   {isId ? "Berhasil!" : "Success!"}
                 </h3>
-                <p className="text-[14px] text-slate-500 font-medium mb-8 leading-relaxed px-2">
+                <p className="text-[13px] text-slate-500 font-medium mb-6 leading-relaxed px-2">
                   {success}
                 </p>
                 <button
                   onClick={() => setSuccess(null)}
-                  className="w-full py-4 bg-emerald-700 text-white font-bold rounded-2xl hover:bg-emerald-800 transition-all duration-300 shadow-md shadow-emerald-950/20 active:scale-95"
+                  className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 transition-all duration-300 shadow-md shadow-emerald-900/20 active:scale-95 text-sm"
                 >
                   {isId ? "Tutup Modal" : "Close"}
                 </button>
@@ -370,356 +478,372 @@ export default function AdminUsersPage() {
         </div>
       )}
 
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 mb-10 animate-in slide-in-from-bottom-4 fade-in duration-500 ease-out">
-        <div>
-          <h1 className="text-3xl md:text-4xl font-extrabold text-slate-800 tracking-tight mb-2">
-            {isId ? "Kelola Pengguna" : "User Management"}
-          </h1>
-          <p className="text-slate-500 font-medium text-[15px]">
-            {isId
-              ? "Kendali penuh atas akses dan peran dalam ekosistem platform."
-              : "Full control over access and roles within the platform ecosystem."}
-          </p>
-        </div>
-
-        <button
-          onClick={openCreate}
-          className="inline-flex items-center justify-center gap-2 px-6 py-4 bg-emerald-800 text-white font-bold rounded-2xl hover:bg-emerald-950 transition-all duration-300 shadow-md shadow-emerald-950/10 active:scale-95"
-        >
-          <Plus className="w-5 h-5" />
-          {isId ? "Tambah Pengguna" : "Add New User"}
-        </button>
-      </div>
-
+      {/* FORM MODAL / CARD */}
       {showForm && (
-        <div className="mb-10 bg-white border border-slate-200 rounded-[2.5rem] p-8 md:p-10 shadow-sm animate-in slide-in-from-top-8 fade-in duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)] relative z-20">
-          <div className="flex items-center justify-between mb-10 pb-6 border-b border-slate-100">
-            <div>
-              <h2 className="text-2xl font-extrabold text-slate-800 mb-2 tracking-tight">
-                {editingUser
-                  ? isId
-                    ? "Edit Data Pengguna"
-                    : "Edit User Details"
-                  : isId
-                  ? "Buat Pengguna Baru"
+        <div className="mb-6 bg-white border border-slate-100 rounded-2xl p-5 md:p-6 shadow-md animate-in fade-in zoom-in-95 duration-200">
+          <div className="flex items-center justify-between mb-6 pb-4 border-b border-slate-100">
+            <h2 className="text-lg font-bold text-slate-900 tracking-tight">
+              {editingUser
+                ? isId
+                  ? "Edit Pengguna"
+                  : "Edit User"
+                : isId
+                  ? "Tambah Pengguna Baru"
                   : "Create New User"}
-              </h2>
-              <p className="text-[14px] font-medium text-slate-500">
-                {isId ? "Isi formulir kredensial di bawah secara lengkap." : "Fill out the credentials form below."}
-              </p>
-            </div>
+            </h2>
             <button
               onClick={closeForm}
-              className="w-12 h-12 bg-slate-50 text-slate-400 hover:text-rose-500 rounded-full flex items-center justify-center hover:bg-rose-50 transition-all duration-300 hover:rotate-90 active:scale-90"
+              className="w-8 h-8 rounded-full flex items-center justify-center hover:bg-slate-100 text-slate-400 hover:text-slate-700 transition-colors"
             >
-              <X className="w-6 h-6" />
+              <X className="w-4 h-4" />
             </button>
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-7">
-              
-              {/* INTERACTIVE INPUT: FULL NAME */}
-              <div className="md:col-span-2 relative group">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-6 pointer-events-none text-slate-400 group-focus-within:text-emerald-500 transition-colors">
-                  <UserIcon className="w-[22px] h-[22px]" />
-                </div>
-                <input
-                  required
-                  placeholder=" "
-                  className="peer w-full pl-14 pr-6 pt-7 pb-3 rounded-2xl border border-slate-200 bg-slate-50/50 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 font-medium text-[15px] text-slate-800 transition-all duration-300"
-                  value={form.full_name}
-                  onChange={(e) => setForm({ ...form, full_name: e.target.value })}
-                />
-                <label className="absolute left-14 top-4 text-[15px] font-medium text-slate-400 transition-all duration-300 pointer-events-none origin-left peer-focus:-translate-y-2.5 peer-focus:scale-[0.8] peer-focus:text-emerald-500 peer-focus:font-bold peer-[:not(:placeholder-shown)]:-translate-y-2.5 peer-[:not(:placeholder-shown)]:scale-[0.8] peer-[:not(:placeholder-shown)]:font-bold">
+            {/* PROFILE IMAGE UPLOAD */}
+            <div className="flex items-center gap-5 p-4 rounded-xl bg-slate-50 border border-slate-100">
+              <div className="w-16 h-16 md:w-20 md:h-20 rounded-full overflow-hidden border-2 border-white shadow-sm bg-emerald-100 flex items-center justify-center shrink-0">
+                {previewImage ? (
+                  <img
+                    src={getImageUrl(previewImage) || ""}
+                    alt="Profile Preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <UserIcon className="w-8 h-8 text-emerald-600/50" />
+                )}
+              </div>
+
+              <div>
+                <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white border border-slate-200 text-slate-700 text-xs font-bold cursor-pointer hover:border-emerald-500 hover:text-emerald-700 shadow-sm transition-all">
+                  <Camera className="w-3.5 h-3.5" />
+                  {isId ? "Ganti Foto Profil" : "Upload Photo"}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        setProfileImage(file);
+                        setPreviewImage(URL.createObjectURL(file));
+                      }
+                    }}
+                  />
+                </label>
+                <p className="text-[11px] text-slate-400 mt-2 font-medium">
+                  JPG / PNG maksimal 5MB
+                </p>
+              </div>
+            </div>
+
+            <div className="grid md:grid-cols-2 gap-5">
+              {/* Full Name */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-2">
                   {isId ? "Nama Lengkap" : "Full Name"}
                 </label>
-              </div>
-
-              {/* INTERACTIVE INPUT: EMAIL */}
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-6 pointer-events-none text-slate-400 group-focus-within:text-emerald-500 transition-colors">
-                  <Mail className="w-[22px] h-[22px]" />
-                </div>
-                <input
-                  type="email"
-                  required
-                  placeholder=" "
-                  className="peer w-full pl-14 pr-6 pt-7 pb-3 rounded-2xl border border-slate-200 bg-slate-50/50 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 font-medium text-[15px] text-slate-800 transition-all duration-300"
-                  value={form.email}
-                  onChange={(e) => setForm({ ...form, email: e.target.value })}
-                />
-                <label className="absolute left-14 top-4 text-[15px] font-medium text-slate-400 transition-all duration-300 pointer-events-none origin-left peer-focus:-translate-y-2.5 peer-focus:scale-[0.8] peer-focus:text-emerald-500 peer-focus:font-bold peer-[:not(:placeholder-shown)]:-translate-y-2.5 peer-[:not(:placeholder-shown)]:scale-[0.8] peer-[:not(:placeholder-shown)]:font-bold">
-                  Email
-                </label>
-              </div>
-
-              {/* INTERACTIVE INPUT: PHONE */}
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-6 pointer-events-none text-slate-400 group-focus-within:text-emerald-500 transition-colors">
-                  <Phone className="w-[22px] h-[22px]" />
-                </div>
-                <input
-                  type="tel"
-                  placeholder=" "
-                  className="peer w-full pl-14 pr-6 pt-7 pb-3 rounded-2xl border border-slate-200 bg-slate-50/50 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 font-medium text-[15px] text-slate-800 transition-all duration-300"
-                  value={form.phone_number}
-                  onChange={(e) => setForm({ ...form, phone_number: e.target.value })}
-                />
-                <label className="absolute left-14 top-4 text-[15px] font-medium text-slate-400 transition-all duration-300 pointer-events-none origin-left peer-focus:-translate-y-2.5 peer-focus:scale-[0.8] peer-focus:text-emerald-500 peer-focus:font-bold peer-[:not(:placeholder-shown)]:-translate-y-2.5 peer-[:not(:placeholder-shown)]:scale-[0.8] peer-[:not(:placeholder-shown)]:font-bold">
-                  {isId ? "No. Telepon" : "Phone Number"}
-                </label>
-              </div>
-
-              {/* INTERACTIVE INPUT: DROPDOWN ROLE */}
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-6 pointer-events-none text-slate-400 group-hover:text-emerald-500 transition-colors">
-                  <ShieldCheck className="w-[22px] h-[22px]" />
-                </div>
-                <div
-                  onClick={() => setRoleOpen(!roleOpen)}
-                  className="w-full pl-14 pr-6 pt-7 pb-3 rounded-2xl border border-slate-200 bg-slate-50/50 cursor-pointer flex justify-between items-center transition-all duration-300 hover:border-emerald-400 hover:bg-white select-none group-hover:ring-4 group-hover:ring-emerald-500/10"
-                >
-                  <span className="font-medium text-[15px] text-slate-800">
-                    {roleOptions.find((o) => o.value === form.role)?.label || "Select Role"}
-                  </span>
-                  <ChevronDown
-                    className={`w-5 h-5 text-slate-400 transition-transform duration-300 ${
-                      roleOpen ? "rotate-180 text-emerald-500" : "group-hover:text-emerald-500"
-                    }`}
+                <div className="relative">
+                  <UserIcon className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    required
+                    value={form.full_name}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, full_name: e.target.value }))
+                    }
+                    className={inputClassName}
+                    placeholder="e.g. John Doe"
                   />
                 </div>
-                {/* Label statis mengecil karena dropdown selalu ada isinya */}
-                <label className="absolute left-14 top-4 -translate-y-2.5 scale-[0.8] text-[15px] font-bold text-slate-400 transition-all duration-300 pointer-events-none origin-left group-hover:text-emerald-500">
-                  {isId ? "Hak Akses / Role" : "System Role"}
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-2">
+                  Email
                 </label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="email"
+                    required
+                    value={form.email}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, email: e.target.value }))
+                    }
+                    className={inputClassName}
+                    placeholder="name@company.com"
+                  />
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-2">
+                  {isId ? "No. Telepon" : "Phone Number"}
+                </label>
+                <div className="relative">
+                  <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="text"
+                    value={form.phone_number}
+                    onChange={(e) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        phone_number: e.target.value,
+                      }))
+                    }
+                    className={inputClassName}
+                    placeholder="+62 812 3456 7890"
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-xs font-bold text-slate-700 mb-2">
+                  Password{" "}
+                  {editingUser && (
+                    <span className="text-slate-400 font-medium">
+                      ({isId ? "opsional" : "optional"})
+                    </span>
+                  )}
+                </label>
+                <div className="relative">
+                  <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                  <input
+                    type="password"
+                    required={!editingUser}
+                    value={form.password}
+                    onChange={(e) =>
+                      setForm((prev) => ({ ...prev, password: e.target.value }))
+                    }
+                    className={inputClassName}
+                    placeholder="••••••••"
+                  />
+                </div>
+              </div>
+
+              {/* Role Dropdown */}
+              <div className="md:col-span-2 relative">
+                <label className="block text-xs font-bold text-slate-700 mb-2">
+                  Role Akses
+                </label>
+                
+                {roleOpen && (
+                  <div className="fixed inset-0 z-10" onClick={() => setRoleOpen(false)} />
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setRoleOpen((v) => !v)}
+                  className="relative z-20 w-full flex items-center justify-between px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-white focus:bg-white focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-500 transition-all duration-200 shadow-sm text-left text-sm"
+                >
+                  <span className="font-semibold text-slate-700">
+                    {roleOptions.find((r) => r.value === form.role)?.label}
+                  </span>
+                  <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform duration-200 ${roleOpen ? "rotate-180" : ""}`} />
+                </button>
 
                 {roleOpen && (
-                  <>
-                    <div className="fixed inset-0 z-30" onClick={() => setRoleOpen(false)} />
-                    <div className="absolute z-40 mt-2 w-full bg-white border border-slate-200 rounded-2xl shadow-xl py-2 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
+                  <div className="absolute z-30 mt-1.5 w-full bg-white border border-slate-100 rounded-xl shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                    <div className="p-1.5 space-y-0.5">
                       {roleOptions.map((opt) => (
-                        <div
+                        <button
                           key={opt.value}
+                          type="button"
                           onClick={() => {
-                            setForm({ ...form, role: opt.value });
+                            setForm((prev) => ({ ...prev, role: opt.value }));
                             setRoleOpen(false);
                           }}
-                          className={`px-5 py-3.5 text-[14.5px] cursor-pointer transition-colors ${
+                          className={`w-full text-left px-3 py-2.5 rounded-lg transition-colors text-sm ${
                             form.role === opt.value
                               ? "bg-emerald-50 text-emerald-700 font-bold"
                               : "text-slate-600 font-medium hover:bg-slate-50 hover:text-slate-900"
                           }`}
                         >
                           {opt.label}
-                        </div>
+                        </button>
                       ))}
                     </div>
-                  </>
-                )}
-              </div>
-
-              {/* INTERACTIVE INPUT: PASSWORD */}
-              <div className="relative group">
-                <div className="absolute inset-y-0 left-0 flex items-center pl-6 pointer-events-none text-slate-400 group-focus-within:text-emerald-500 transition-colors">
-                  <Lock className="w-[22px] h-[22px]" />
-                </div>
-                <input
-                  type="password"
-                  required={!editingUser}
-                  minLength={editingUser ? undefined : 6}
-                  placeholder=" "
-                  className="peer w-full pl-14 pr-6 pt-7 pb-3 rounded-2xl border border-slate-200 bg-slate-50/50 outline-none focus:border-emerald-400 focus:bg-white focus:ring-4 focus:ring-emerald-500/10 font-medium text-[15px] text-slate-800 transition-all duration-300"
-                  value={form.password}
-                  onChange={(e) => setForm({ ...form, password: e.target.value })}
-                />
-                <label className="absolute left-14 top-4 text-[15px] font-medium text-slate-400 transition-all duration-300 pointer-events-none origin-left peer-focus:-translate-y-2.5 peer-focus:scale-[0.8] peer-focus:text-emerald-500 peer-focus:font-bold peer-[:not(:placeholder-shown)]:-translate-y-2.5 peer-[:not(:placeholder-shown)]:scale-[0.8] peer-[:not(:placeholder-shown)]:font-bold">
-                  {editingUser ? (isId ? "Password Baru" : "New Password") : "Password"}
-                </label>
-                
-                {/* Bantuan teks di bawah input jika sedang dalam mode Edit */}
-                {editingUser && (
-                  <p className="absolute -bottom-6 left-2 text-[12px] font-medium text-amber-500/80">
-                    * {isId ? "Kosongkan jika tidak ingin merubah sandi." : "Leave blank to keep current password."}
-                  </p>
+                  </div>
                 )}
               </div>
             </div>
 
-            <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 pt-10">
-              <button
-                type="button"
-                onClick={closeForm}
-                className="px-8 py-4 border border-slate-200 text-slate-600 text-[14.5px] font-bold rounded-2xl hover:bg-slate-50 transition-colors active:scale-95 text-center"
-              >
-                {isId ? "Batalkan" : "Cancel"}
-              </button>
+            <div className="flex items-center gap-3 pt-3 border-t border-slate-100">
               <button
                 type="submit"
                 disabled={saving}
-                className="px-8 py-4 bg-emerald-800 text-white text-[14.5px] font-bold rounded-2xl hover:bg-emerald-950 disabled:opacity-60 transition-all duration-300 shadow-md shadow-emerald-950/10 flex items-center justify-center min-w-[160px] active:scale-95"
+                className="inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-emerald-600 text-white text-sm font-bold hover:bg-emerald-500 shadow-sm disabled:opacity-60 transition-all"
               >
                 {saving ? (
-                  <div className="w-5 h-5 border-2 border-emerald-200 border-t-white rounded-full animate-spin" />
-                ) : editingUser ? (
-                  isId ? "Simpan Pembaruan" : "Save Changes"
-                ) : isId ? (
-                  "Buat Pengguna"
+                   <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                 ) : (
-                  "Create User"
+                   <CheckCircle2 className="w-4 h-4" />
                 )}
+                {saving
+                  ? isId
+                    ? "Menyimpan..."
+                    : "Saving..."
+                  : editingUser
+                    ? isId
+                      ? "Simpan"
+                      : "Save"
+                    : isId
+                      ? "Buat Pengguna"
+                      : "Create User"}
+              </button>
+              <button
+                type="button"
+                onClick={closeForm}
+                className="px-6 py-2.5 rounded-xl bg-white border border-slate-200 text-slate-600 text-sm font-bold hover:bg-slate-50 transition-colors"
+              >
+                {isId ? "Batal" : "Cancel"}
               </button>
             </div>
           </form>
         </div>
       )}
 
-      {users.length > 0 && (
-        <div className="flex flex-wrap items-center gap-3 mb-8 animate-in fade-in duration-500">
-          <div className="flex items-center gap-2 px-5 py-3 bg-white border border-slate-200 rounded-2xl text-slate-500 text-[13px] font-bold shadow-sm">
-            <Filter className="w-4 h-4 text-slate-400" />
-            {isId ? "Filter Role:" : "Filter Role:"}
-          </div>
+      {/* FILTER & TOOLS */}
+      <div className="mb-4 flex items-center justify-between">
+        
+        {/* Custom Filter Dropdown */}
+        <div className="relative inline-block">
+          {filterOpen && (
+            <div className="fixed inset-0 z-10" onClick={() => setFilterOpen(false)} />
+          )}
 
-          <div className="bg-slate-200/50 p-1.5 rounded-[1.25rem] inline-flex flex-wrap gap-1 border border-slate-200/60">
-            {[
-              { id: "all", label: isId ? "Semua" : "All" },
-              { id: "super_admin", label: "Super Admin" },
-              { id: "admin", label: "Admin" },
-              { id: "client", label: "Client" },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setFilterRole(tab.id)}
-                className={`px-6 py-2.5 rounded-xl text-[13.5px] font-bold transition-all duration-300 ease-out active:scale-95 ${
-                  filterRole === tab.id
-                    ? "bg-white text-slate-800 shadow-sm border border-slate-200/80"
-                    : "text-slate-500 border border-transparent hover:text-slate-700 hover:bg-slate-200/60"
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
+          <button
+            onClick={() => setFilterOpen((v) => !v)}
+            className="relative z-20 flex items-center gap-1.5 px-4 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-xs font-bold text-slate-700 transition-all duration-200 shadow-sm"
+          >
+            <Filter className="w-3.5 h-3.5 text-emerald-600" />
+            {filterOptions.find(o => o.value === filterRole)?.label}
+            <ChevronDown className={`w-3.5 h-3.5 text-slate-400 ml-1 transition-transform duration-200 ${filterOpen ? "rotate-180" : ""}`} />
+          </button>
 
-      {users.length === 0 && !error && !loading ? (
-        <div className="bg-white border border-slate-200 rounded-[2.5rem] py-24 text-center shadow-sm">
-          <div className="w-24 h-24 bg-slate-50 border border-slate-100 rounded-3xl flex items-center justify-center mx-auto mb-6">
-            <Users className="w-12 h-12 text-slate-300" />
-          </div>
-          <h3 className="text-xl font-extrabold text-slate-800 mb-2">
-            {isId ? "Database Kosong" : "Database Empty"}
-          </h3>
-          <p className="text-slate-500 font-medium text-[15px]">
-            {isId ? "Belum ada pengguna yang terdaftar di sistem." : "No users registered in the system yet."}
-          </p>
+          {filterOpen && (
+            <div className="absolute left-0 z-30 mt-1.5 w-40 bg-white border border-slate-100 rounded-xl shadow-lg overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+              <div className="p-1.5 space-y-0.5">
+                {filterOptions.map((opt) => (
+                  <button
+                    key={opt.value}
+                    onClick={() => {
+                      setFilterRole(opt.value);
+                      setFilterOpen(false);
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-colors ${
+                      filterRole === opt.value
+                        ? "bg-emerald-50 text-emerald-700 font-bold"
+                        : "text-slate-600 font-medium hover:bg-slate-50 hover:text-slate-900"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
-      ) : processedUsers.length === 0 && !loading ? (
-        <div className="bg-white border border-slate-200 rounded-[2.5rem] py-24 text-center shadow-sm">
-          <div className="w-20 h-20 bg-slate-50 border border-slate-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Filter className="w-8 h-8 text-slate-300" />
-          </div>
-          <h3 className="text-xl font-extrabold text-slate-800 mb-2">
-            {isId ? "Tidak Ditemukan" : "Not Found"}
-          </h3>
-          <p className="text-slate-500 font-medium text-[15px]">
-            {isId ? "Tidak ada pengguna dengan filter role ini." : "No users match this role filter."}
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {processedUsers.map((user, index) => {
-            const roleStyle = getRoleStyle(user.role);
-            const Icon = roleStyle.icon;
 
-            return (
+        <p className="text-xs font-bold text-slate-400">
+          Total: <span className="text-emerald-600">{filteredUsers.length}</span>
+        </p>
+      </div>
+
+      {/* USERS LIST CARDS */}
+      <div className="bg-white border border-slate-100 rounded-2xl shadow-sm overflow-hidden">
+        {filteredUsers.length === 0 ? (
+          <div className="py-16 flex flex-col items-center justify-center text-center">
+             <div className="w-12 h-12 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center mb-3">
+               <Users className="w-5 h-5 text-slate-300" />
+             </div>
+             <p className="text-slate-500 font-medium text-sm">
+               {isId ? "Belum ada pengguna yang sesuai." : "No users found."}
+             </p>
+          </div>
+        ) : (
+          <div className="divide-y divide-slate-100">
+            {filteredUsers.map((user) => (
               <div
                 key={user.id}
-                style={{ animationFillMode: "both", animationDelay: `${index * 60}ms` }}
-                className="animate-in slide-in-from-bottom-8 fade-in duration-500 ease-out"
+                className="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-50/50 transition-colors duration-150"
               >
-                <div
-                  className={`h-full rounded-[2rem] p-7 transition-all duration-300 ease-out flex flex-col border hover:-translate-y-1 active:scale-[0.98] group cursor-default ${roleStyle.card}`}
-                >
-                  <div className="flex justify-between items-start mb-6">
-                    <div
-                      className={`w-14 h-14 rounded-2xl border shadow-sm flex items-center justify-center transition-all duration-300 ease-out group-hover:scale-105 ${roleStyle.avatarBg}`}
-                    >
-                      <span className={`font-extrabold text-xl ${roleStyle.avatarText}`}>
-                        {(user.full_name || "?").charAt(0).toUpperCase()}
-                      </span>
-                    </div>
-
-                    <div
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl border transition-colors duration-300 ease-out shadow-sm ${roleStyle.badgeBg}`}
-                    >
-                      <Icon className={`w-3 h-3 ${roleStyle.badgeText}`} />
-                      <span
-                        className={`text-[10.5px] font-extrabold uppercase tracking-widest ${roleStyle.badgeText}`}
-                      >
-                        {user.role.replace("_", " ")}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mb-8 flex-1 flex flex-col gap-1">
-                    <h3 className="text-[17px] font-extrabold text-slate-800 truncate" title={user.full_name}>
-                      {user.full_name}
-                    </h3>
-                    <p className="text-[14px] text-slate-600 font-semibold truncate" title={user.email}>
-                      {user.email}
-                    </p>
-                    {user.phone_number && (
-                      <p className="text-[14px] text-slate-600 font-semibold truncate" title={user.phone_number}>
-                        {user.phone_number}
-                      </p>
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full overflow-hidden bg-emerald-50 border border-emerald-100 flex items-center justify-center shadow-sm shrink-0">
+                    {user.profile_image ? (
+                      <img
+                        src={getImageUrl(user.profile_image) || ""}
+                        alt={user.full_name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <UserIcon className="w-5 h-5 text-emerald-600/50" />
                     )}
                   </div>
 
-                  <div className="pt-5 border-t border-black/5 flex justify-end gap-3">
-                    <button
-                      type="button"
-                      onClick={() => openEdit(user)}
-                      className="w-11 h-11 rounded-xl bg-emerald-500 border border-emerald-400 text-white shadow-sm flex items-center justify-center transition-all duration-300 ease-out hover:bg-emerald-50 hover:text-emerald-600 hover:border-emerald-200 hover:shadow-none active:scale-90 group/btn"
-                      title={isId ? "Edit Pengguna" : "Edit User"}
-                    >
-                      <Pencil className="w-[18px] h-[18px] transition-transform duration-300 group-hover/btn:scale-110" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => initiateDelete(user)}
-                      className="w-11 h-11 rounded-xl bg-rose-500 border border-rose-500 text-white shadow-sm flex items-center justify-center transition-all duration-300 ease-out hover:bg-rose-50 hover:text-rose-500 hover:border-rose-200 hover:shadow-none active:scale-90 group/btn"
-                      title={isId ? "Hapus Pengguna" : "Delete User"}
-                    >
-                      <Trash2 className="w-[18px] h-[18px] transition-transform duration-300 group-hover/btn:scale-110" />
-                    </button>
+                  <div>
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <h3 className="text-sm font-bold text-slate-900 leading-none">
+                        {user.full_name}
+                      </h3>
+                      {roleBadge(user.role)}
+                    </div>
+                    <div className="flex items-center gap-3 text-xs font-medium text-slate-500 mt-1.5">
+                      <span className="flex items-center gap-1.5"><Mail className="w-3 h-3 text-slate-400"/> {user.email}</span>
+                      {user.phone_number && (
+                        <>
+                          <span className="w-1 h-1 rounded-full bg-slate-300" />
+                          <span className="flex items-center gap-1.5"><Phone className="w-3 h-3 text-slate-400"/> {user.phone_number}</span>
+                        </>
+                      )}
+                    </div>
                   </div>
                 </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
 
-      {userToDelete && (
-        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
-          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden relative animate-in zoom-in-[0.5] fade-in duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
-            <div className="p-10 text-center">
-              <div className="w-20 h-20 bg-rose-50 rounded-[1.8rem] flex items-center justify-center mx-auto mb-6 border border-rose-100 relative">
-                <div className="absolute inset-0 rounded-[1.8rem] border-2 border-rose-200 animate-ping opacity-50 duration-1000" />
-                <AlertTriangle className="w-10 h-10 text-rose-500 relative z-10" />
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => openEdit(user)}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-emerald-600 text-white hover:bg-emerald-500 shadow-sm hover:shadow-md transition-all"
+                    title={isId ? "Edit" : "Edit"}
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </button>
+                  <button
+                    onClick={() => setUserToDelete(user)}
+                    className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-rose-50 text-rose-500 hover:bg-rose-100 hover:text-rose-600 transition-all"
+                    title={isId ? "Hapus" : "Delete"}
+                  >
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* CUSTOM DELETE CONFIRMATION MODAL */}
+      {userToDelete !== null && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
+          <div className="bg-white rounded-3xl shadow-2xl w-full max-w-md overflow-hidden relative animate-in zoom-in-[0.5] fade-in duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
+            <div className="p-8 md:p-10 text-center">
+              <div className="w-16 h-16 bg-rose-50 rounded-[1.2rem] flex items-center justify-center mx-auto mb-5 border border-rose-100 relative">
+                <div className="absolute inset-0 rounded-[1.2rem] border-2 border-rose-200 animate-ping opacity-50 duration-1000" />
+                <AlertTriangle className="w-8 h-8 text-rose-500 relative z-10" />
               </div>
 
-              <h3 className="text-2xl font-extrabold text-slate-800 mb-3 tracking-tight">
-                {isId ? "Hapus Akun Ini?" : "Delete This Account?"}
+              <h3 className="text-xl font-bold text-slate-800 mb-2 tracking-tight">
+                {isId ? "Hapus Pengguna Ini?" : "Delete This User?"}
               </h3>
 
-              <p className="text-slate-500 text-[14.5px] mb-8 leading-relaxed px-2">
-                {isId ? "Apakah Anda yakin ingin menghapus pengguna" : "Are you sure you want to delete user"}{" "}
-                <span className="font-extrabold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md inline-block mx-1">
-                  {userToDelete.full_name}
+              <p className="text-slate-500 text-sm mb-8 leading-relaxed px-2">
+                {isId ? "Apakah Anda yakin ingin menghapus akun" : "Are you sure you want to delete account"}{" "}
+                <span className="font-bold text-rose-600 bg-rose-50 px-2 py-0.5 rounded inline-block mx-1 truncate max-w-[200px] align-bottom">
+                  {userToDelete?.full_name}
                 </span>
                 ?{" "}
                 {isId
@@ -727,27 +851,21 @@ export default function AdminUsersPage() {
                   : "This action is permanent and cannot be undone."}
               </p>
 
-              {error && (
-                <p className="text-[13px] text-rose-700 font-bold mb-6 bg-rose-50 p-4 rounded-xl border border-rose-200">
-                  {error}
-                </p>
-              )}
-
               <div className="flex flex-col-reverse sm:flex-row gap-3">
                 <button
                   onClick={() => setUserToDelete(null)}
-                  disabled={deletingId === userToDelete.id}
-                  className="flex-1 py-4 bg-slate-50 border border-slate-200 text-slate-600 text-[14.5px] font-bold rounded-2xl hover:bg-slate-100 transition-colors disabled:opacity-50 active:scale-95"
+                  disabled={deletingId !== null}
+                  className="flex-1 py-3 bg-slate-50 border border-slate-200 text-slate-600 text-sm font-bold rounded-xl hover:bg-slate-100 transition-colors disabled:opacity-50 active:scale-95"
                 >
                   {isId ? "Batalkan" : "Cancel"}
                 </button>
                 <button
-                  onClick={confirmDelete}
-                  disabled={deletingId === userToDelete.id}
-                  className="flex-1 py-4 bg-rose-600 text-white text-[14.5px] font-bold rounded-2xl hover:bg-rose-700 disabled:opacity-80 flex items-center justify-center gap-2 transition-all duration-300 shadow-md shadow-rose-600/20 active:scale-95"
+                  onClick={handleDelete}
+                  disabled={deletingId !== null}
+                  className="flex-1 py-3 bg-rose-600 text-white text-sm font-bold rounded-xl hover:bg-rose-700 disabled:opacity-80 flex items-center justify-center gap-2 transition-all duration-300 shadow-md shadow-rose-600/20 active:scale-95"
                 >
-                  {deletingId === userToDelete.id ? (
-                    <div className="w-5 h-5 border-2 border-rose-200 border-t-white rounded-full animate-spin" />
+                  {deletingId !== null ? (
+                    <div className="w-4 h-4 border-2 border-rose-200 border-t-white rounded-full animate-spin" />
                   ) : (
                     <>
                       <Trash2 className="w-4 h-4" />

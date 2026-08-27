@@ -4,7 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
-import { Menu, X } from "lucide-react";
+import { Menu, X, ChevronDown } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 
@@ -13,13 +13,21 @@ const navLinks = [
   { href: "/about", label: "About" },
   { href: "/services", label: "Services" },
   { href: "/insights", label: "Insights" },
-  { href: "/products", label: "Products" },
+  { 
+    href: "/products", 
+    label: "Products",
+    dropdown: [
+      { href: "/products/rapid-fs", label: "Rapid-FS Scoring" },
+      { href: "/products/satubumi-monitor", label: "Satubumi Monitor" }
+    ]
+  },
   { href: "/contact", label: "Contact" },
 ];
 
 export default function Navbar() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [mobileProductOpen, setMobileProductOpen] = useState(false);
 
   const [isLoggedIn, setIsLoggedIn] = useState<boolean | null>(null);
   const [user, setUser] = useState<any>(null);
@@ -34,7 +42,6 @@ export default function Navbar() {
   const currentLang = pathname.split("/")[1] === "id" ? "id" : "en";
   const isAdmin = user?.role === "admin" || user?.role === "super_admin";
 
-  // Scroll: hide ke bawah, show ke atas
   useEffect(() => {
     setIsMounted(true);
 
@@ -56,7 +63,6 @@ export default function Navbar() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
-  // Auth
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem("access_token");
@@ -83,7 +89,6 @@ export default function Navbar() {
     checkAuth();
   }, [pathname]);
 
-  // Klik di luar dropdown
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -131,17 +136,17 @@ export default function Navbar() {
 
   return (
     <div
-      className={`fixed top-6 inset-x-0 z-50 flex justify-center items-start pointer-events-none gap-3 lg:gap-4 px-4 w-full transition-all duration-500 ease-out ${navVisibilityClass}`}
+      className={`fixed top-4 inset-x-0 z-50 flex justify-center items-start pointer-events-none gap-3 lg:gap-4 px-4 w-full transition-all duration-500 ease-out ${navVisibilityClass}`}
     >
-      {/* NAVBAR UTAMA */}
-      <header className="bg-white/95 backdrop-blur-md border border-emerald-100/80 rounded-full w-full lg:w-auto h-[72px] flex items-center justify-between px-6 lg:px-8 shadow-[0_10px_40px_-10px_rgba(4,43,34,0.15)] pointer-events-auto transition-all duration-300">
+      {/* NAVBAR UTAMA (Tinggi direduksi menjadi h-[60px]) */}
+      <header className="bg-white/95 backdrop-blur-md border border-emerald-100/80 rounded-full w-full lg:w-auto h-[60px] flex items-center justify-between px-6 lg:px-8 shadow-[0_10px_40px_-10px_rgba(4,43,34,0.15)] pointer-events-auto transition-all duration-300">
         <Link href={`/${currentLang}`} className="flex items-center group lg:mr-4">
           <Image
             src="/logo.png"
             alt="Satubumi Logo"
             width={1403}
             height={252}
-            className="h-8 md:h-9 w-auto object-contain group-hover:scale-105 transition-transform duration-300"
+            className="h-6 md:h-7 w-auto object-contain group-hover:scale-105 transition-transform duration-300"
             priority
             unoptimized
           />
@@ -149,31 +154,55 @@ export default function Navbar() {
 
         <nav className="hidden lg:flex items-center gap-4">
           {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={`/${currentLang}${link.href}`}
-              className="relative px-2 py-2 text-[15px] font-bold text-emerald-900 group"
-            >
-              {link.label}
-              
-              {/* PERUBAHAN: Posisi dari -bottom-1 dinaikkan menjadi bottom-0.5 */}
-              <span
-                className={`absolute bottom-0.5 left-1/2 -translate-x-1/2 h-[3px] bg-emerald-600 rounded-full transition-all duration-300 ${
-                  isActive(link.href)
-                    ? "w-full opacity-100"
-                    : "w-0 opacity-0 group-hover:w-full group-hover:opacity-60"
-                }`}
-              />
-            </Link>
+            <div key={link.href} className="relative group">
+              <Link
+                href={link.dropdown ? "#" : `/${currentLang}${link.href}`}
+                className="relative px-2 py-1.5 text-[14px] font-bold text-emerald-900 group flex items-center gap-1.5"
+              >
+                {link.label}
+                {link.dropdown && (
+                  <ChevronDown className="w-3.5 h-3.5 text-emerald-600 group-hover:rotate-180 transition-transform duration-300" />
+                )}
+                
+                <span
+                  className={`absolute bottom-0 left-1/2 -translate-x-1/2 h-[2.5px] bg-emerald-600 rounded-full transition-all duration-300 ${
+                    isActive(link.href)
+                      ? "w-full opacity-100"
+                      : "w-0 opacity-0 group-hover:w-full group-hover:opacity-60"
+                  }`}
+                />
+              </Link>
+
+              {/* DROPDOWN DESKTOP */}
+              {link.dropdown && (
+                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-4 w-48 bg-white border border-emerald-100/80 rounded-[1.25rem] shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-300 translate-y-2 group-hover:translate-y-0 overflow-hidden">
+                  <div className="flex flex-col py-2">
+                    {link.dropdown.map((subItem) => (
+                      <Link
+                        key={subItem.href}
+                        href={`/${currentLang}${subItem.href}`}
+                        className={`px-4 py-2.5 text-[13px] font-bold transition-colors ${
+                          isActive(subItem.href)
+                            ? "bg-emerald-50 text-emerald-700"
+                            : "text-emerald-900 hover:bg-emerald-50 hover:text-emerald-700"
+                        }`}
+                      >
+                        {subItem.label}
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
           ))}
 
-          <div className="w-[1px] h-6 bg-emerald-100 mx-2" />
+          <div className="w-[1px] h-5 bg-emerald-100 mx-1" />
 
           <div className="flex items-center bg-white p-1 rounded-full border border-emerald-100/80 shadow-sm">
             <button
               type="button"
               onClick={() => handleLanguageSwitch("en")}
-              className={`px-3 py-1.5 text-[11px] font-extrabold rounded-full transition-all ${
+              className={`px-3 py-1 text-[10px] font-extrabold rounded-full transition-all ${
                 currentLang === "en"
                   ? "bg-emerald-700 text-white shadow-sm"
                   : "text-emerald-800 hover:bg-emerald-50"
@@ -184,7 +213,7 @@ export default function Navbar() {
             <button
               type="button"
               onClick={() => handleLanguageSwitch("id")}
-              className={`px-3 py-1.5 text-[11px] font-extrabold rounded-full transition-all ${
+              className={`px-3 py-1 text-[10px] font-extrabold rounded-full transition-all ${
                 currentLang === "id"
                   ? "bg-emerald-700 text-white shadow-sm"
                   : "text-emerald-800 hover:bg-emerald-50"
@@ -197,34 +226,34 @@ export default function Navbar() {
 
         <button
           type="button"
-          className="lg:hidden p-2 text-emerald-900 transition-colors hover:bg-emerald-50 rounded-full"
+          className="lg:hidden p-1.5 text-emerald-900 transition-colors hover:bg-emerald-50 rounded-full"
           onClick={() => setOpen(!open)}
         >
-          {open ? <X size={24} /> : <Menu size={24} />}
+          {open ? <X size={22} /> : <Menu size={22} />}
         </button>
       </header>
 
-      {/* USER PROFILE */}
-      <div className="hidden lg:flex bg-white/95 backdrop-blur-md border border-emerald-100/80 rounded-full h-[72px] items-center px-2 shadow-[0_10px_40px_-10px_rgba(4,43,34,0.15)] pointer-events-auto relative">
+      {/* USER PROFILE (Tinggi direduksi menjadi h-[60px]) */}
+      <div className="hidden lg:flex bg-white/95 backdrop-blur-md border border-emerald-100/80 rounded-full h-[60px] items-center px-1.5 shadow-[0_10px_40px_-10px_rgba(4,43,34,0.15)] pointer-events-auto relative">
         {isLoggedIn === null ? (
-          <div className="w-32 h-10 bg-emerald-50 animate-pulse rounded-full m-2" />
+          <div className="w-28 h-8 bg-emerald-50 animate-pulse rounded-full m-2" />
         ) : isLoggedIn ? (
           <div className="relative" ref={dropdownRef}>
             <button
               type="button"
               onClick={() => setUserMenuOpen(!userMenuOpen)}
-              className="flex items-center gap-3 pl-5 pr-2 py-2 rounded-full border border-transparent hover:bg-emerald-50/50 transition-all duration-300 group"
+              className="flex items-center gap-3 pl-4 pr-1.5 py-1.5 rounded-full border border-transparent hover:bg-emerald-50/50 transition-all duration-300 group"
             >
               <div className="flex flex-col items-end">
-                <span className="text-[11px] font-bold text-emerald-800/60 uppercase tracking-wider mb-0.5 leading-none">
+                <span className="text-[10px] font-bold text-emerald-800/60 uppercase tracking-wider mb-0.5 leading-none">
                   Workspace
                 </span>
-                <span className="text-[14px] font-bold text-emerald-900 leading-none">
+                <span className="text-[13px] font-bold text-emerald-900 leading-none">
                   Hi, {user?.full_name?.split(" ")[0] || "User"}
                 </span>
               </div>
 
-              <div className="w-10 h-10 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-800 flex items-center justify-center font-extrabold text-sm group-hover:bg-emerald-600 group-hover:text-white transition-colors shadow-sm">
+              <div className="w-8 h-8 rounded-full bg-emerald-50 border border-emerald-100 text-emerald-800 flex items-center justify-center font-extrabold text-xs group-hover:bg-emerald-600 group-hover:text-white transition-colors shadow-sm">
                 {getInitials(user?.full_name)}
               </div>
             </button>
@@ -263,18 +292,8 @@ export default function Navbar() {
                     className="flex items-center gap-3 px-4 py-3 text-[14px] font-bold text-emerald-900 hover:bg-emerald-50 rounded-xl transition-colors"
                   >
                     <svg className="w-4 h-4 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2.5}
-                        d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-                      />
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2.5}
-                        d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                     </svg>
                     Admin Panel
                   </Link>
@@ -286,12 +305,7 @@ export default function Navbar() {
                   className="w-full flex items-center gap-3 px-4 py-3 text-[14px] font-bold text-rose-600 hover:bg-rose-50 rounded-xl transition-colors mt-1"
                 >
                   <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2.5}
-                      d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                    />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
                   </svg>
                   Log Out
                 </button>
@@ -301,7 +315,7 @@ export default function Navbar() {
         ) : (
           <Link
             href={`/${currentLang}/login`}
-            className="px-7 py-2.5 m-2 text-[14px] font-extrabold bg-emerald-700 text-white rounded-full hover:bg-emerald-600 transition-all duration-300 shadow-sm hover:shadow-md hover:shadow-emerald-600/20"
+            className="px-6 py-2 m-1.5 text-[13px] font-extrabold bg-emerald-700 text-white rounded-full hover:bg-emerald-600 transition-all duration-300 shadow-sm hover:shadow-md hover:shadow-emerald-600/20"
           >
             Sign In
           </Link>
@@ -310,24 +324,61 @@ export default function Navbar() {
 
       {/* MOBILE MENU */}
       {open && showNavbar && (
-        <div className="absolute top-[85px] inset-x-4 bg-white/95 backdrop-blur-xl border border-emerald-100/80 rounded-3xl p-5 flex flex-col gap-3 shadow-[0_30px_60px_-15px_rgba(4,43,34,0.15)] pointer-events-auto lg:hidden animate-in slide-in-from-top-4 duration-300">
+        <div className="absolute top-[72px] inset-x-4 bg-white/95 backdrop-blur-xl border border-emerald-100/80 rounded-3xl p-5 flex flex-col gap-3 shadow-[0_30px_60px_-15px_rgba(4,43,34,0.15)] pointer-events-auto lg:hidden animate-in slide-in-from-top-4 duration-300">
           <div className="flex flex-col gap-2">
             {navLinks.map((link) => (
-              <Link
-                key={link.href}
-                href={`/${currentLang}${link.href}`}
-                onClick={() => setOpen(false)}
-                className={`flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold text-emerald-900 transition-all ${
-                  isActive(link.href)
-                    ? "bg-emerald-50 border border-emerald-100"
-                    : "hover:bg-emerald-50 border border-transparent"
-                }`}
-              >
-                {link.label}
-                {isActive(link.href) && (
-                  <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(5,150,105,0.5)]" />
+              <div key={link.href} className="flex flex-col">
+                {link.dropdown ? (
+                  <>
+                    <button
+                      onClick={() => setMobileProductOpen(!mobileProductOpen)}
+                      className={`flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold text-emerald-900 transition-all ${
+                        isActive(link.href) || mobileProductOpen
+                          ? "bg-emerald-50 border border-emerald-100"
+                          : "hover:bg-emerald-50 border border-transparent"
+                      }`}
+                    >
+                      {link.label}
+                      <ChevronDown className={`w-4 h-4 text-emerald-600 transition-transform duration-300 ${mobileProductOpen ? "rotate-180" : ""}`} />
+                    </button>
+                    
+                    {/* DROPDOWN MOBILE */}
+                    {mobileProductOpen && (
+                      <div className="flex flex-col pl-4 pr-2 py-2 mt-1 gap-1 border-l-2 border-emerald-100 ml-4">
+                        {link.dropdown.map((subItem) => (
+                          <Link
+                            key={subItem.href}
+                            href={`/${currentLang}${subItem.href}`}
+                            onClick={() => setOpen(false)}
+                            className={`px-4 py-2.5 rounded-xl font-bold transition-all ${
+                              isActive(subItem.href)
+                                ? "bg-emerald-100/50 text-emerald-800"
+                                : "text-emerald-900/70 hover:bg-emerald-50 hover:text-emerald-900"
+                            }`}
+                          >
+                            {subItem.label}
+                          </Link>
+                        ))}
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <Link
+                    href={`/${currentLang}${link.href}`}
+                    onClick={() => setOpen(false)}
+                    className={`flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold text-emerald-900 transition-all ${
+                      isActive(link.href)
+                        ? "bg-emerald-50 border border-emerald-100"
+                        : "hover:bg-emerald-50 border border-transparent"
+                    }`}
+                  >
+                    {link.label}
+                    {isActive(link.href) && (
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_8px_rgba(5,150,105,0.5)]" />
+                    )}
+                  </Link>
                 )}
-              </Link>
+              </div>
             ))}
           </div>
 
