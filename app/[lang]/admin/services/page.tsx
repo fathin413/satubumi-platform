@@ -527,18 +527,30 @@ export default function AdminServicesPage() {
               {row.preview ? (
                 <div className="relative w-full aspect-[21/9] md:aspect-video rounded-2xl overflow-hidden border-4 border-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] group">
                   <img src={row.preview} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/20 transition-colors duration-300 flex items-start justify-end p-4 opacity-0 group-hover:opacity-100">
-                    <label className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-md text-slate-700 text-sm font-bold rounded-xl hover:bg-white hover:scale-105 transition-all shadow-lg cursor-pointer">
-                      <ImagePlus className="w-4 h-4" />
-                      {isId ? "Ganti" : "Change"}
-                      <input
-                        type="file"
-                        accept="image/jpeg,image/png,image/webp"
-                        className="hidden"
-                        onChange={(e) => openCrop(index, e)}
-                      />
-                    </label>
-                  </div>
+                 <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/30 transition-colors duration-300 flex items-start justify-end gap-2 p-4 opacity-0 group-hover:opacity-100">
+  {/* Tombol Ganti */}
+  <label className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-md text-slate-700 text-sm font-bold rounded-xl hover:bg-white hover:scale-105 transition-all shadow-lg cursor-pointer">
+    <ImagePlus className="w-4 h-4" />
+    {isId ? "Ganti" : "Change"}
+    <input
+      type="file"
+      accept="image/jpeg,image/png,image/webp"
+      className="hidden"
+      onChange={(e) => openCrop(index, e)}
+    />
+  </label>
+
+  {/* Tombol Hapus Foto */}
+  <button
+    type="button"
+    onClick={() => updateRow(index, { preview: null, file: null })}
+    className="inline-flex items-center gap-2 px-4 py-2 bg-rose-600/90 backdrop-blur-md text-white text-sm font-bold rounded-xl hover:bg-rose-600 hover:scale-105 transition-all shadow-lg"
+    title={isId ? "Hapus Foto" : "Remove Image"}
+  >
+    <Trash2 className="w-4 h-4" />
+    {isId ? "Hapus" : "Delete"}
+  </button>
+</div>
                 </div>
               ) : (
                 <label className="flex flex-col items-center justify-center w-full p-8 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 transition-all cursor-pointer group">
