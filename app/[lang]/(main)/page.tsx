@@ -8,18 +8,9 @@ import {
   InsightsSection,
 } from "../../../components/home";
 
-const API_URL =
-  process.env.NEXT_PUBLIC_API_URL ||
-  "http://localhost:8000/api/v1";
-
-const BACKEND_ORIGIN =
-  API_URL.replace(/\/api\/v1\/?$/, "");
-
-const FALLBACK_HERO =
-  "https://images.unsplash.com/photo-1511497584788-876760111969?q=80&w=2000&auto=format&fit=crop";
-
-const FALLBACK_INSIGHT =
-  "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=800&auto=format&fit=crop";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const BACKEND_ORIGIN = API_URL.replace(/\/api\/v1\/?$/, "");
+const FALLBACK_INSIGHT = "https://images.unsplash.com/photo-1451187580459-43490279c0fa?q=80&w=800&auto=format&fit=crop";
 
 type Article = {
   id: number;
@@ -32,8 +23,8 @@ type Article = {
   slug?: string;
   image_url?: string | null;
   created_at?: string;
-  view_count?: number; 
-  views?: number; 
+  view_count?: number;
+  views?: number;
 };
 
 function resolveImageUrl(url?: string | null) {
@@ -57,9 +48,7 @@ function plainText(content: string) {
 }
 
 function formatDate(dateString?: string, isId?: boolean) {
-  if (!dateString)
-    return isId ? "Baru saja dirilis" : "Recently published";
-
+  if (!dateString) return isId ? "Baru saja dirilis" : "Recently published";
   const date = new Date(dateString);
   return date.toLocaleDateString(isId ? "id-ID" : "en-US", {
     year: "numeric",
@@ -71,30 +60,19 @@ function formatDate(dateString?: string, isId?: boolean) {
 async function getHomeArticles(lang: string): Promise<Article[]> {
   try {
     const apiLang = lang === "en" ? "en" : "id";
-
     const res = await fetch(`${API_URL}/articles/?lang=${apiLang}`, {
-      next: {
-        revalidate: 30,
-      },
+      next: { revalidate: 30 },
     });
 
     if (!res.ok) return [];
-
     const data = await res.json();
-
-    return Array.isArray(data)
-      ? data.filter((a: Article) => a.status === "published")
-      : [];
+    return Array.isArray(data) ? data.filter((a: Article) => a.status === "published") : [];
   } catch {
     return [];
   }
 }
 
-function pickTitle(
-  article: Article | undefined,
-  isId: boolean,
-  fallback: string
-) {
+function pickTitle(article: Article | undefined, isId: boolean, fallback: string) {
   if (!article) return fallback;
   if (!isId && article.title_en) return article.title_en;
   return article.title || fallback;
@@ -106,38 +84,26 @@ function pickContent(article: Article | undefined, isId: boolean) {
   return article.content;
 }
 
-export default async function HomePage({
-  params,
-}: {
-  params: Promise<{
-    lang: string;
-  }>;
-}) {
+export default async function HomePage({ params }: { params: Promise<{ lang: string }> }) {
   const { lang } = await params;
-  const dict = await getDictionary(lang);
   const isId = lang === "id";
 
   const articles = await getHomeArticles(lang);
-
   const bySlug = (slug: string) => articles.find((a) => a.slug === slug);
 
-  // === PERBAIKAN DI SINI: MENGAMBIL 3 GAMBAR HERO ===
   const heroArt = bySlug("home-hero");
   const heroBg2 = bySlug("home-hero-bg-2");
   const heroBg3 = bySlug("home-hero-bg-3");
 
-  const heroImages = [
+  let heroImages = [
     resolveImageUrl(heroArt?.image_url),
     resolveImageUrl(heroBg2?.image_url),
     resolveImageUrl(heroBg3?.image_url),
-  ].filter(
-    (x): x is string => Boolean(x)
-  );
+  ].filter((x): x is string => Boolean(x));
 
   if (heroImages.length === 0) {
-    heroImages.push(FALLBACK_HERO);
+    heroImages = ["/asset.jpeg", "/asset1.jpeg", "/asset3.jpg"];
   }
-  // ==================================================
 
   let heroTitle = isId
     ? "Menciptakan Dampak Iklim yang Terukur & Berkelanjutan"
@@ -147,9 +113,7 @@ export default async function HomePage({
     ? "Kami mendampingi perusahaan, lembaga, dan pemerintah dalam merancang strategi keseimbangan antara pertumbuhan ekonomi dan kelestarian ekosistem."
     : "We assist companies, institutions, and governments in designing strategies that balance economic growth with ecosystem preservation.";
 
-  let heroHighlight = isId
-    ? "Dampak Iklim yang Terukur"
-    : "Measurable Climate Impact";
+  let heroHighlight = isId ? "Dampak Iklim yang Terukur" : "Measurable Climate Impact";
 
   if (heroArt) {
     heroTitle = pickTitle(heroArt, isId, heroTitle);
@@ -167,16 +131,11 @@ export default async function HomePage({
   }
 
   const about = bySlug("home-card-about");
-  const services = bySlug("home-card-services");
-  const products = bySlug("home-card-products");
 
   const insightArticles = articles
     .filter((a) => a.category?.toLowerCase() === "insight")
-    .map((a) => ({
-      ...a,
-      views: a.view_count || 0, 
-    }))
-    .sort((a, b) => (b.view_count || 0) - (a.view_count || 0)) 
+    .map((a) => ({ ...a, views: a.view_count || 0 }))
+    .sort((a, b) => (b.view_count || 0) - (a.view_count || 0))
     .slice(0, 4);
 
   return (
@@ -190,11 +149,7 @@ export default async function HomePage({
         images={heroImages}
       />
 
-      <AboutSection
-        lang={lang}
-        isId={isId}
-        content={plainText(pickContent(about, isId))}
-      />
+      <AboutSection lang={lang} isId={isId} content={plainText(pickContent(about, isId))} />
 
       <ServicesSection lang={lang} isId={isId} />
 

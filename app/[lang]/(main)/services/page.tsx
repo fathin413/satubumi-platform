@@ -24,9 +24,9 @@ const BACKEND_ORIGIN =
 
 
 const fallbackImages = [
-  "https://images.unsplash.com/photo-1511497584788-876760111969?q=80&w=1200",
-  "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?q=80&w=1200",
-  "https://images.unsplash.com/photo-1456926631375-92c8ce872def?q=80&w=1200",
+  "/asset.jpeg",
+  "/asset1.jpeg",
+  "/asset3.jpg",
 ];
 
 

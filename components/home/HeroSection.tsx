@@ -73,11 +73,11 @@ export default function HeroSection({
           );
         })}
 
-        {/* Lapis 1: Multiply Emerald super gelap untuk filter hijau pekat */}
-        <div className="absolute inset-0 bg-emerald-950/80 mix-blend-multiply z-20" />
+        {/* Lapis 1: Multiply Emerald dikurangi opacity-nya agar gambar lebih terlihat */}
+        <div className="absolute inset-0 bg-emerald-950/50 mix-blend-multiply z-20" />
         
-        {/* Lapis 2: Overlay hijau sangat gelap (nyaris hitam) */}
-        <div className="absolute inset-0 bg-[#02180e]/65 z-20" />
+        {/* Lapis 2: Overlay hijau gelap dikurangi opacity-nya */}
+        <div className="absolute inset-0 bg-[#02180e]/60 z-20" />
         
         {/* Lapis 3: Transisi Mulus ke Section Bawah */}
         <div className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-[#052e16] via-[#052e16]/40 to-transparent z-20" />

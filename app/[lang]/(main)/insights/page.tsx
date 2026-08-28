@@ -220,7 +220,10 @@ export default function InsightsPage() {
 
     try {
       const listRes = await fetch(
-        `${API_URL}/articles/?category=insight&lang=${apiLang}${topicQ}`
+        `${API_URL}/articles/?category=insight&lang=${apiLang}${topicQ}`,
+        {
+          cache: "no-store",
+        }
       );
 
       if (!listRes.ok) {
@@ -241,7 +244,11 @@ export default function InsightsPage() {
       setTopInsights(sortedByViews.slice(0, 4));
 
       const [authorsResult, topicsResult] = await Promise.allSettled([
-        fetch(`${API_URL}/articles/insights/top-authors?limit=5`).then((res) =>
+        fetch(`${API_URL}/articles/insights/top-authors?limit=5`,
+          {
+            cache: "no-store",
+          }
+        ).then((res) =>
           res.ok ? res.json() : []
         ),
         fetch(`${API_URL}/articles/insights/topics`).then((res) =>

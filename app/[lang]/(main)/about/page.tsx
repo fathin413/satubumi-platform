@@ -136,9 +136,9 @@ export default function AboutPage() {
   const mission = find("about-mission");
 
   const gallery = [
-    resolveImage(find("about-gallery-1")?.image_url, FALLBACK_IMAGES.gallery[0]),
-    resolveImage(find("about-gallery-2")?.image_url, FALLBACK_IMAGES.gallery[1]),
-    resolveImage(find("about-gallery-3")?.image_url, FALLBACK_IMAGES.gallery[2]),
+    resolveImage(find("about-gallery-1")?.image_url, "/asset.jpeg"),
+    resolveImage(find("about-gallery-2")?.image_url, "/asset1.jpeg"),
+    resolveImage(find("about-gallery-3")?.image_url, "/asset3.jpg"),
   ];
 
   const missionItems = mission?.content
@@ -256,10 +256,10 @@ export default function AboutPage() {
               <div className="relative mt-8 lg:mt-0">
                 <div className="absolute -inset-4 bg-emerald-100 rounded-[2.5rem] -rotate-2" />
                 <img
-                  src={resolveImage(body?.image_url, FALLBACK_IMAGES.body)}
-                  alt="Satubumi"
-                  className="relative w-full aspect-[4/5] object-cover rounded-[2rem] shadow-xl"
-                />
+                src={resolveImage(body?.image_url, "/asset.jpeg")}
+                alt="Satubumi"
+                className="relative w-full aspect-[4/5] object-cover rounded-[2rem] shadow-xl"
+              />
               </div>
             </ScrollReveal>
 

@@ -18,6 +18,7 @@ import {
   type LucideIcon,
   Newspaper,
   Tag,
+  FileText,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -100,13 +101,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           label: isId ? "Halaman Services" : "Services Page",
           icon: Briefcase,
         },
-        { href: `/${lang}/admin/insights`, label: "Insights", icon: Newspaper },
-        {
-      href: `/${lang}/admin/insight-topics`,
-      label: isId ? "Topic Insight" : "Insight Topics",
-      icon: Tag, // pastikan Tag di-import dari lucide-react
+      ],
     },
-        
+    {
+      title: isId ? "Konten Insights" : "Insights Content",
+      items: [
+        { href: `/${lang}/admin/insights`, label: isId ? "Artikel" : "Article", icon: Newspaper },
+        { href: `/${lang}/admin/insight-topics`, label: isId ? "Topik Artikel" : "Article Topic", icon: Tag },
+        { href: `/${lang}/admin/rulebooks`, label: "Rulebook", icon: FileText },
       ],
     },
     {
@@ -120,19 +122,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       ],
     },
   ];
-
-  if (user?.role === "super_admin") {
-    navGroups.push({
-      title: isId ? "Sistem" : "System",
-      items: [
-        {
-          href: `/${lang}/admin/users`,
-          label: isId ? "Manajemen Pengguna" : "User Management",
-          icon: Users,
-        },
-      ],
-    });
-  }
 
   const isActive = (href: string, exact?: boolean) => {
     if (exact) return pathname === href || pathname === `${href}/`;
