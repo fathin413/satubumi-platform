@@ -24,9 +24,11 @@ const BACKEND_ORIGIN =
 
 
 const fallbackImages = [
-  "/asset.jpeg",
-  "/asset1.jpeg",
-  "/asset3.jpg",
+  "/asset.jpeg",     // Layanan 1
+  "/service2.webp",  // Layanan 2
+  "/asset3.jpg",     // Layanan 3
+  "/service.jpg",    // Layanan 4
+  "/service3.jpg",   // Layanan 5
 ];
 
 
@@ -262,306 +264,100 @@ function ServiceCard({
   index,
   scopeLabel,
   getImage,
-
-}:{
-  service:ServiceItem;
-  index:number;
-  scopeLabel:string;
-  getImage:
-    (
-      item:ServiceItem,
-      index:number
-    )=>string;
-}){
-
-
-const [open,setOpen]=useState(false);
-
-
-
-return (
-
-<ScrollReveal
-delay={`delay-${Math.min(index*100,300)}`}
-className="w-full"
->
-
-
-<div className="
-bg-white
-rounded-[2rem]
-border
-border-slate-200
-overflow-hidden
-group
-hover:border-emerald-200
-hover:shadow-[0_25px_60px_-20px_rgba(16,185,129,0.18)]
-transition-all
-duration-500
-">
-
-
-
-<div className="
-aspect-[16/10]
-overflow-hidden
-relative
-">
-
-<img
-
-src={getImage(service,index)}
-
-alt={service.title}
-
-className="
-w-full
-h-full
-object-cover
-group-hover:scale-105
-transition-transform
-duration-1000
-"
-
-/>
-
-</div>
-
-
-
-
-
-<div className="
-px-6
-pt-6
-">
-
-
-<div className="
-flex
-items-center
-gap-3
-mb-5
-">
-
-
-<span className="
-text-xs
-font-black
-tracking-[0.3em]
-text-emerald-600
-">
-
-0{index+1}
-
-</span>
-
-
-<div className="
-h-px
-flex-1
-bg-slate-100
-"/>
-
-
-</div>
-
-
-
-
-
-
-<h3 className="
-text-xl
-md:text-2xl
-font-extrabold
-text-emerald-950
-leading-snug
-tracking-tight
-mb-4
-group-hover:text-emerald-700
-transition
-">
-
-{service.title}
-
-</h3>
-
-
-
-
-
-<div className="
-mb-6
-">
-
-<Description
-desc={service.desc}
-descHtml={service.descHtml}
-/>
-
-</div>
-
-
-
-
-
-
-{service.scopes.length>0 && (
-
-<div className="
-border-t
-border-slate-100
-pt-5
-pb-6
-">
-
-
-<button
-
-onClick={()=>setOpen(!open)}
-
-className="
-w-full
-flex
-items-center
-justify-between
-"
-
->
-
-
-<span className="
-text-xs
-font-bold
-uppercase
-tracking-[0.2em]
-text-slate-700
-">
-
-{scopeLabel}
-
-</span>
-
-
-
-<div className={`
-w-8
-h-8
-rounded-full
-flex
-items-center
-justify-center
-transition
-${
-open
-?
-"bg-emerald-100 text-emerald-700 rotate-180"
-:
-"bg-slate-100 text-slate-400"
-}
-`}>
-
-<ChevronDown className="
-w-4
-h-4
-"/>
-
-</div>
-
-
-</button>
-
-
-
-
-
-
-<div className={`
-grid
-transition-all
-duration-500
-${
-open
-?
-"grid-rows-[1fr] opacity-100 mt-5"
-:
-"grid-rows-[0fr] opacity-0"
-}
-`}>
-
-<div className="overflow-hidden">
-
-<ul className="
-space-y-4
-">
-
-
-{
-service.scopes.map((item,i)=>(
-
-<li
-key={i}
-className="
-flex
-gap-3
-items-start
-"
->
-
-
-<Check className="
-w-5
-h-5
-text-emerald-500
-shrink-0
-mt-1
-"/>
-
-
-<span className="
-text-sm
-text-slate-600
-font-semibold
-leading-relaxed
-">
-
-{item}
-
-</span>
-
-
-</li>
-
-))
-}
-
-
-
-</ul>
-
-</div>
-
-</div>
-
-
-
-</div>
-
-)}
-
-
-
-</div>
-
-
-</div>
-
-
-</ScrollReveal>
-
-);
-
+}: {
+  service: ServiceItem;
+  index: number;
+  scopeLabel: string;
+  getImage: (item: ServiceItem, index: number) => string;
+}) {
+  const [open, setOpen] = useState(false);
+  const defaultImg = fallbackImages[index % fallbackImages.length];
+
+  return (
+    <ScrollReveal
+      delay={`delay-${Math.min(index * 100, 300)}`}
+      className="w-full"
+    >
+      <div className="bg-white rounded-[2rem] border border-slate-200 overflow-hidden group hover:border-emerald-200 hover:shadow-[0_25px_60px_-20px_rgba(16,185,129,0.18)] transition-all duration-500">
+        
+        {/* CONTAINER GAMBAR */}
+        <div className="aspect-[16/10] overflow-hidden relative bg-slate-100">
+          <img
+            src={getImage(service, index)}
+            alt={service.title}
+            onError={(e) => {
+              if (e.currentTarget.src !== window.location.origin + defaultImg) {
+                e.currentTarget.src = defaultImg;
+              }
+            }}
+            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-1000"
+          />
+        </div>
+
+        <div className="px-6 pt-6">
+          <div className="flex items-center gap-3 mb-5">
+            <span className="text-xs font-black tracking-[0.3em] text-emerald-600">
+              0{index + 1}
+            </span>
+            <div className="h-px flex-1 bg-slate-100" />
+          </div>
+
+          <h3 className="text-xl md:text-2xl font-extrabold text-emerald-950 leading-snug tracking-tight mb-4 group-hover:text-emerald-700 transition">
+            {service.title}
+          </h3>
+
+          <div className="mb-6">
+            <Description desc={service.desc} descHtml={service.descHtml} />
+          </div>
+
+          {service.scopes.length > 0 && (
+            <div className="border-t border-slate-100 pt-5 pb-6">
+              <button
+                type="button"
+                onClick={() => setOpen(!open)}
+                className="w-full flex items-center justify-between"
+              >
+                <span className="text-xs font-bold uppercase tracking-[0.2em] text-slate-700">
+                  {scopeLabel}
+                </span>
+
+                <div
+                  className={`w-8 h-8 rounded-full flex items-center justify-center transition ${
+                    open
+                      ? "bg-emerald-100 text-emerald-700 rotate-180"
+                      : "bg-slate-100 text-slate-400"
+                  }`}
+                >
+                  <ChevronDown className="w-4 h-4" />
+                </div>
+              </button>
+
+              <div
+                className={`grid transition-all duration-500 ${
+                  open
+                    ? "grid-rows-[1fr] opacity-100 mt-5"
+                    : "grid-rows-[0fr] opacity-0"
+                }`}
+              >
+                <div className="overflow-hidden">
+                  <ul className="space-y-4">
+                    {service.scopes.map((item, i) => (
+                      <li key={i} className="flex gap-3 items-start">
+                        <Check className="w-5 h-5 text-emerald-500 shrink-0 mt-1" />
+                        <span className="text-sm text-slate-600 font-semibold leading-relaxed">
+                          {item}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </ScrollReveal>
+  );
 }
 
 

@@ -17,8 +17,8 @@ const navLinks = [
     href: "/products", 
     label: "Products",
     dropdown: [
-      { href: "/products/rapid-fs", label: "Rapid-FS Scoring" },
-      { href: "/products/satubumi-monitor", label: "Satubumi Monitor" }
+      { href: "/products", label: "Rapid-FS Scoring" },
+      { href: "/monitor", label: "Satubumi Monitor" }
     ]
   },
   { href: "/contact", label: "Contact" },
@@ -121,6 +121,11 @@ export default function Navbar() {
     return pathname.startsWith(`/${currentLang}${href}`);
   };
 
+  const isDropdownActive = (dropdown?: { href: string }[]) => {
+    if (!dropdown) return false;
+    return dropdown.some((sub) => pathname.startsWith(`/${currentLang}${sub.href}`));
+  };
+
   const getInitials = (name: string) => {
     if (!name) return "U";
     const parts = name.split(" ");
@@ -138,7 +143,7 @@ export default function Navbar() {
     <div
       className={`fixed top-4 inset-x-0 z-50 flex justify-center items-start pointer-events-none gap-3 lg:gap-4 px-4 w-full transition-all duration-500 ease-out ${navVisibilityClass}`}
     >
-      {/* NAVBAR UTAMA (Tinggi direduksi menjadi h-[60px]) */}
+      {/* NAVBAR UTAMA */}
       <header className="bg-white/95 backdrop-blur-md border border-emerald-100/80 rounded-full w-full lg:w-auto h-[60px] flex items-center justify-between px-6 lg:px-8 shadow-[0_10px_40px_-10px_rgba(4,43,34,0.15)] pointer-events-auto transition-all duration-300">
         <Link href={`/${currentLang}`} className="flex items-center group lg:mr-4">
           <Image
@@ -154,24 +159,41 @@ export default function Navbar() {
 
         <nav className="hidden lg:flex items-center gap-4">
           {navLinks.map((link) => (
-            <div key={link.href} className="relative group">
-              <Link
-                href={link.dropdown ? "#" : `/${currentLang}${link.href}`}
-                className="relative px-2 py-1.5 text-[14px] font-bold text-emerald-900 group flex items-center gap-1.5"
-              >
-                {link.label}
-                {link.dropdown && (
+            <div key={link.href} className="relative group flex items-center">
+              {link.dropdown ? (
+                <button
+                  type="button"
+                  className="px-2 py-1.5 text-[14px] font-bold text-emerald-900 group flex items-center gap-1.5 cursor-default focus:outline-none"
+                >
+                  <span className="relative inline-flex flex-col items-center">
+                    <span>{link.label}</span>
+                    <span
+                      className={`absolute -bottom-1 left-1/2 -translate-x-1/2 h-[3px] bg-emerald-600 rounded-full transition-all duration-300 ${
+                        isDropdownActive(link.dropdown)
+                          ? "w-full opacity-100"
+                          : "w-0 opacity-0 group-hover:w-full group-hover:opacity-100"
+                      }`}
+                    />
+                  </span>
                   <ChevronDown className="w-3.5 h-3.5 text-emerald-600 group-hover:rotate-180 transition-transform duration-300" />
-                )}
-                
-                <span
-                  className={`absolute bottom-0 left-1/2 -translate-x-1/2 h-[2.5px] bg-emerald-600 rounded-full transition-all duration-300 ${
-                    isActive(link.href)
-                      ? "w-full opacity-100"
-                      : "w-0 opacity-0 group-hover:w-full group-hover:opacity-60"
-                  }`}
-                />
-              </Link>
+                </button>
+              ) : (
+                <Link
+                  href={`/${currentLang}${link.href}`}
+                  className="px-2 py-1.5 text-[14px] font-bold text-emerald-900 group flex items-center"
+                >
+                  <span className="relative inline-flex flex-col items-center">
+                    <span>{link.label}</span>
+                    <span
+                      className={`absolute -bottom-1 left-1/2 -translate-x-1/2 h-[3px] bg-emerald-600 rounded-full transition-all duration-300 ${
+                        isActive(link.href)
+                          ? "w-full opacity-100"
+                          : "w-0 opacity-0 group-hover:w-full group-hover:opacity-100"
+                      }`}
+                    />
+                  </span>
+                </Link>
+              )}
 
               {/* DROPDOWN DESKTOP */}
               {link.dropdown && (
@@ -233,7 +255,7 @@ export default function Navbar() {
         </button>
       </header>
 
-      {/* USER PROFILE (Tinggi direduksi menjadi h-[60px]) */}
+      {/* USER PROFILE */}
       <div className="hidden lg:flex bg-white/95 backdrop-blur-md border border-emerald-100/80 rounded-full h-[60px] items-center px-1.5 shadow-[0_10px_40px_-10px_rgba(4,43,34,0.15)] pointer-events-auto relative">
         {isLoggedIn === null ? (
           <div className="w-28 h-8 bg-emerald-50 animate-pulse rounded-full m-2" />
@@ -331,9 +353,10 @@ export default function Navbar() {
                 {link.dropdown ? (
                   <>
                     <button
+                      type="button"
                       onClick={() => setMobileProductOpen(!mobileProductOpen)}
                       className={`flex items-center justify-between px-4 py-3.5 rounded-2xl font-bold text-emerald-900 transition-all ${
-                        isActive(link.href) || mobileProductOpen
+                        isDropdownActive(link.dropdown) || mobileProductOpen
                           ? "bg-emerald-50 border border-emerald-100"
                           : "hover:bg-emerald-50 border border-transparent"
                       }`}
