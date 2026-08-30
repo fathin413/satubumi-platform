@@ -40,7 +40,8 @@ const products = {
       { icon: LineChart, title: "Revenue Projection", value: "$90M" },
       { icon: Globe2, title: "Spatial Risk", value: "Low" },
     ],
-    href: "/products/rapid-fs",
+    // Rute diperbaiki ke /products
+    href: "/products",
   },
 
   monitor: {
@@ -62,7 +63,8 @@ const products = {
       { icon: LineChart, title: "ESG Metrics", value: "120+" },
       { icon: Globe2, title: "Project Status", value: "Updated" },
     ],
-    href: "/products/satubumi-monitor",
+    // Rute diperbaiki ke /monitor
+    href: "/monitor",
   },
 };
 

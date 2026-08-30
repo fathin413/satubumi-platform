@@ -499,8 +499,8 @@ export default function AdminHomePage() {
 
   const box =
     "bg-white border border-slate-200/60 rounded-[2rem] p-8 md:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.03)] space-y-6 relative overflow-hidden";
-  const inputCls =
-    "w-full px-5 py-4 rounded-2xl border-2 border-transparent bg-slate-50 focus:bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all font-medium text-slate-900 placeholder:text-slate-400";
+  const inputCls = 
+    "w-full px-5 py-4 rounded-2xl border border-slate-300 bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all font-medium text-slate-900 placeholder:text-slate-400 shadow-sm";
 
   return (
     <div className="max-w-5xl mx-auto pb-20 font-sans relative">
