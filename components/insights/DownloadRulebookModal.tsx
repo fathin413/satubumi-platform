@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Download, User, Mail, Phone, Building2 } from "lucide-react";
 
 type Props = {
@@ -18,6 +18,16 @@ export default function DownloadRulebookModal({ rulebook, onClose }: Props) {
     institution: "",
   });
   const [loading, setLoading] = useState(false);
+
+  // Kunci scroll halaman utama saat modal terbuka
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = originalOverflow;
+    };
+  }, []);
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,19 +50,20 @@ export default function DownloadRulebookModal({ rulebook, onClose }: Props) {
     }
   };
 
-  const inputClassName = "w-full pl-11 pr-4 py-3.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-emerald-500/15 focus:border-emerald-500 transition-all duration-300 shadow-sm bg-slate-50 focus:bg-white text-slate-800 text-sm font-medium";
+  const inputClassName =
+    "w-full pl-11 pr-4 py-3.5 rounded-2xl border border-slate-200 focus:outline-none focus:ring-4 focus:ring-emerald-500/15 focus:border-emerald-500 transition-all duration-300 shadow-sm bg-slate-50 focus:bg-white text-slate-800 text-sm font-medium";
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      {/* Overlay */}
-      <div 
-        className="absolute inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity" 
-        onClick={onClose} 
+    /* z-[9999] memastikan modal berada di atas seluruh elemen halaman dan footer */
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      {/* Overlay Gelap */}
+      <div
+        className="fixed inset-0 bg-slate-950/60 backdrop-blur-md transition-opacity"
+        onClick={onClose}
       />
-      
-      {/* Modal Content */}
-      <div className="relative bg-white w-full max-w-md rounded-[2rem] p-6 md:p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
-        
+
+      {/* Konten Modal */}
+      <div className="relative z-10 bg-white w-full max-w-md rounded-[2rem] p-6 md:p-8 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         <div className="flex items-center justify-between mb-6 border-b border-slate-100 pb-4">
           <div>
             <h2 className="text-xl font-extrabold text-slate-900 tracking-tight">
@@ -63,6 +74,7 @@ export default function DownloadRulebookModal({ rulebook, onClose }: Props) {
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-400 hover:bg-rose-50 hover:text-rose-500 transition-colors"
           >

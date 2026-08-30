@@ -2,6 +2,7 @@ import "./globals.css";
 import "leaflet/dist/leaflet.css";
 
 export const metadata = {
+  
   title: "Satubumi",
   description: "Bridging science, nature, and business.",
 };

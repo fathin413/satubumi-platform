@@ -19,6 +19,8 @@ import {
   Newspaper,
   Tag,
   FileText,
+  Activity,
+  UserCheck,
 } from "lucide-react";
 
 const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
@@ -47,7 +49,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   useEffect(() => {
     const check = async () => {
-      const token = localStorage.getItem("access_token");
+      const token = localStorage.getItem("access_token") || localStorage.getItem("token");
       if (!token) {
         router.push(`/${lang}/login`);
         return;
@@ -58,6 +60,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         });
         if (!res.ok) {
           localStorage.removeItem("access_token");
+          localStorage.removeItem("token");
           router.push(`/${lang}/login`);
           return;
         }
@@ -76,8 +79,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const handleLogout = () => {
     localStorage.removeItem("access_token");
+    localStorage.removeItem("token");
     window.location.href = `/${lang}/login`;
   };
+
+  // Menu Pengguna & Log Aktivitas berdasarkan role
+  const userMenuItems: NavItem[] = [];
+
+  if (user?.role === "super_admin") {
+    userMenuItems.push({
+      href: `/${lang}/admin/users`,
+      label: isId ? "Manajemen Pengguna" : "User Management",
+      icon: Users,
+    });
+    userMenuItems.push({
+      href: `/${lang}/admin/activity-logs`,
+      label: isId ? "Log Semua Aktivitas" : "All Activity Logs",
+      icon: Activity,
+    });
+  }
+
+  // Tersedia untuk Admin dan Super Admin
+  userMenuItems.push({
+    href: `/${lang}/admin/my-activity`,
+    label: isId ? "Aktivitas Saya" : "My Activity",
+    icon: UserCheck,
+  });
 
   const navGroups: NavGroup[] = [
     {
@@ -120,6 +147,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           icon: ClipboardList,
         },
       ],
+    },
+    {
+      title: isId ? "Pengguna" : "User",
+      items: userMenuItems,
     },
   ];
 
@@ -302,7 +333,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
       )}
 
-            {/* MAIN CONTENT */}
+      {/* MAIN CONTENT */}
       <div className="flex-1 lg:ml-[280px] flex flex-col min-h-screen min-w-0 overflow-x-hidden">
         <header className="h-[76px] bg-white/80 backdrop-blur-xl border-b-2 border-slate-200 flex items-center justify-between gap-3 px-6 md:px-10 sticky top-0 z-30 shadow-[0_4px_20px_-10px_rgba(0,0,0,0.05)]">
           <div className="flex items-center gap-4 min-w-0">

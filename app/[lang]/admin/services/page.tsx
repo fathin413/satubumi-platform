@@ -9,7 +9,8 @@ import {
   Save, 
   ShieldCheck, 
   AlertTriangle, 
-  CheckCircle2 
+  CheckCircle2,
+  Edit
 } from "lucide-react";
 import ImageCropModal from "@/components/ImageCropModal";
 import RichTextEditor from "@/components/admin/RichTextEditor";
@@ -38,6 +39,7 @@ type Row = {
   content_en: string;
   preview: string | null;
   file: File | null;
+  isEditing: boolean; 
 };
 
 function resolveImageUrl(url?: string | null) {
@@ -69,13 +71,11 @@ export default function AdminServicesPage() {
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [cropIndex, setCropIndex] = useState<number | null>(null);
 
-  // State khusus untuk Custom Delete Modal
   const [serviceToDelete, setServiceToDelete] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
   const token = () => localStorage.getItem("access_token");
 
-  // Auto-dismiss popup modal
   useEffect(() => {
     if (success || error) {
       const timer = setTimeout(() => {
@@ -94,7 +94,6 @@ export default function AdminServicesPage() {
         const data = await res.json();
         const list: Article[] = Array.isArray(data) ? data : [];
         
-        // MENGUNCI URUTAN BERDASARKAN ID AGAR TIDAK MELOMPAT SAAT DI-EDIT
         const services = list
           .filter((a) => a.category === "services")
           .sort((a, b) => a.id - b.id);
@@ -110,6 +109,7 @@ export default function AdminServicesPage() {
                 content_en: a.content_en || "",
                 preview: resolveImageUrl(a.image_url),
                 file: null,
+                isEditing: false, 
               }))
             : [
                 {
@@ -121,6 +121,7 @@ export default function AdminServicesPage() {
                   content_en: "",
                   preview: null,
                   file: null,
+                  isEditing: true, 
                 },
               ]
         );
@@ -149,16 +150,15 @@ export default function AdminServicesPage() {
         content_en: "",
         preview: null,
         file: null,
+        isEditing: true, 
       },
     ]);
     
-    // Auto scroll ke bawah perlahan ketika menambah row baru
     setTimeout(() => {
       window.scrollTo({ top: document.body.scrollHeight, behavior: "smooth" });
     }, 100);
   };
 
-  // Eksekusi penghapusan sesudah konfirmasi
   const executeDelete = async () => {
     if (serviceToDelete === null) return;
 
@@ -182,7 +182,6 @@ export default function AdminServicesPage() {
         return;
       }
     } else {
-      // Jika layanan baru (belum disimpan), langsung munculkan sukses pembatalan
       setSuccess(isId ? "Layanan batal ditambahkan." : "Draft service removed.");
     }
 
@@ -200,6 +199,7 @@ export default function AdminServicesPage() {
               content_en: "",
               preview: null,
               file: null,
+              isEditing: true,
             },
           ];
     });
@@ -274,6 +274,9 @@ export default function AdminServicesPage() {
           await uploadImage(saved.id, row.file);
           nextRows[i] = { ...nextRows[i], file: null };
         }
+        
+        // Tutup form setelah berhasil disimpan
+        nextRows[i].isEditing = false;
       }
 
       setRows(nextRows);
@@ -293,13 +296,6 @@ export default function AdminServicesPage() {
     e.target.value = "";
   };
 
-  const layoutHint = (index: number) => {
-    if (index % 3 === 0) {
-      return isId ? "Kartu BESAR (full)" : "LARGE card (full)";
-    }
-    return isId ? "Kartu kecil (pasangan 2 kolom)" : "Small card (2-col pair)";
-  };
-
   if (loading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh]">
@@ -311,9 +307,8 @@ export default function AdminServicesPage() {
     );
   }
 
-  // Consistent Styling variables
   const box = "bg-white border border-slate-200/60 rounded-[2rem] p-8 md:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.03)] space-y-6 relative overflow-hidden";
-  const inputCls = "w-full px-5 py-4 rounded-2xl border-2 border-transparent bg-slate-50 focus:bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all font-medium text-slate-900 placeholder:text-slate-400";
+  const inputCls = "w-full px-5 py-4 rounded-2xl border border-slate-300 bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all font-medium text-slate-900 placeholder:text-slate-400 shadow-sm";
 
   return (
     <div className="max-w-5xl mx-auto pb-20 font-sans relative">
@@ -449,145 +444,222 @@ export default function AdminServicesPage() {
         </button>
       </div>
 
-      <div className="space-y-8">
-        {rows.map((row, index) => (
-          <section key={row.key} className={box}>
-            <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-2">
-              <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-3">
-                <span className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-sm">
-                  {index + 1}
-                </span>
-                {isId ? "Layanan" : "Service"}
-              </h2>
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100">
-                {layoutHint(index)}
-              </span>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
-                  Judul (ID)
-                </label>
-                <input
-                  className={inputCls}
-                  value={row.title}
-                  onChange={(e) => updateRow(index, { title: e.target.value })}
-                  placeholder={isId ? "Misal: Restorasi Ekosistem" : "e.g. Ecosystem Restoration"}
-                />
-              </div>
-              <div className="space-y-2">
-                <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
-                  Title (EN)
-                </label>
-                <input
-                  className={inputCls}
-                  value={row.title_en}
-                  onChange={(e) => updateRow(index, { title_en: e.target.value })}
-                  placeholder="e.g. Ecosystem Restoration"
-                />
-              </div>
-            </div>
-
-            <div className="grid md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
-                  Konten (ID)
-                </label>
-                <div className="rounded-2xl overflow-hidden border-2 border-transparent bg-slate-50">
-                  <RichTextEditor
-                    value={row.content}
-                    onChange={(html) => updateRow(index, { content: html })}
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
-                  Content (EN)
-                </label>
-                <div className="rounded-2xl overflow-hidden border-2 border-transparent bg-slate-50">
-                  <RichTextEditor
-                    value={row.content_en}
-                    onChange={(html) => updateRow(index, { content_en: html })}
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="mt-4">
-              <div className="flex items-center justify-between mb-3">
-                <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
-                  {isId ? "Gambar Layanan" : "Service Image"}
-                </label>
-                <span className="text-[11px] font-bold px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full">
-                  Ratio: 16:9 ata 4:3
-                </span>
-              </div>
-
-              {row.preview ? (
-                <div className="relative w-full aspect-[21/9] md:aspect-video rounded-2xl overflow-hidden border-4 border-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] group">
-                  <img src={row.preview} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                 <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/30 transition-colors duration-300 flex items-start justify-end gap-2 p-4 opacity-0 group-hover:opacity-100">
-  {/* Tombol Ganti */}
-  <label className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-md text-slate-700 text-sm font-bold rounded-xl hover:bg-white hover:scale-105 transition-all shadow-lg cursor-pointer">
-    <ImagePlus className="w-4 h-4" />
-    {isId ? "Ganti" : "Change"}
-    <input
-      type="file"
-      accept="image/jpeg,image/png,image/webp"
-      className="hidden"
-      onChange={(e) => openCrop(index, e)}
-    />
-  </label>
-
-  {/* Tombol Hapus Foto */}
-  <button
-    type="button"
-    onClick={() => updateRow(index, { preview: null, file: null })}
-    className="inline-flex items-center gap-2 px-4 py-2 bg-rose-600/90 backdrop-blur-md text-white text-sm font-bold rounded-xl hover:bg-rose-600 hover:scale-105 transition-all shadow-lg"
-    title={isId ? "Hapus Foto" : "Remove Image"}
-  >
-    <Trash2 className="w-4 h-4" />
-    {isId ? "Hapus" : "Delete"}
-  </button>
-</div>
-                </div>
-              ) : (
-                <label className="flex flex-col items-center justify-center w-full p-8 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 transition-all cursor-pointer group">
-                  <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center mb-3 group-hover:scale-110 group-hover:text-emerald-600 transition-all text-slate-400">
-                    <ImagePlus className="w-5 h-5" />
-                  </div>
-                  <span className="text-[13px] font-bold text-slate-700 mb-1">
-                    {isId ? "Pilih & Crop Gambar" : "Choose & Crop Image"}
-                  </span>
-                  <span className="text-[11px] font-medium text-slate-400">
-                    {isId ? "Format JPG, PNG, WEBP didukung" : "JPG, PNG, WEBP formats supported"}
-                  </span>
-                  <input
-                    type="file"
-                    accept="image/jpeg,image/png,image/webp"
-                    className="hidden"
-                    onChange={(e) => openCrop(index, e)}
-                  />
-                </label>
-              )}
-            </div>
-
-            <div className="flex justify-end pt-4 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setServiceToDelete(index)}
-                className="inline-flex items-center gap-2 text-sm font-bold px-4 py-2.5 rounded-xl bg-rose-50 text-rose-600 hover:bg-rose-100 transition-colors"
+      <div className="space-y-6">
+        {rows.map((row, index) => {
+          
+          // ==== TAMPILAN CARD (READ-ONLY) ====
+          if (!row.isEditing) {
+            return (
+              <div 
+                key={row.key} 
+                className="bg-white border border-slate-200/80 rounded-2xl p-5 shadow-[0_2px_15px_rgba(0,0,0,0.03)] flex flex-col md:flex-row gap-6 items-center hover:border-emerald-300 transition-all duration-300 animate-in fade-in zoom-in-95 ease-out"
               >
-                <Trash2 className="w-4 h-4" />
-                {isId ? "Hapus Layanan Ini" : "Remove this service"}
-              </button>
-            </div>
-          </section>
-        ))}
+                <div className="w-full md:w-56 aspect-[16/9] rounded-xl overflow-hidden bg-slate-100 border border-slate-200 shrink-0 relative">
+                  {row.preview ? (
+                    <img src={row.preview} alt={row.title} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="absolute inset-0 flex flex-col items-center justify-center text-slate-400">
+                      <ImagePlus className="w-6 h-6 mb-2 opacity-40" />
+                      <span className="text-[10px] font-bold uppercase">{isId ? "Tanpa Foto" : "No Image"}</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="flex-1 w-full space-y-2">
+                  <div className="flex items-center gap-3 mb-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md border border-emerald-100/60 shadow-sm flex items-center gap-1.5">
+                      <CheckCircle2 className="w-3 h-3" />
+                      {isId ? "Dipublikasikan" : "Published"}
+                    </span>
+                    {!row.id && (
+                       <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md border border-amber-100/60 shadow-sm">
+                          {isId ? "Belum Disimpan" : "Unsaved"}
+                       </span>
+                    )}
+                  </div>
+                  
+                  {/* Judul EN jadi Utama di Card */}
+                  <h3 className="text-xl font-extrabold text-slate-900 line-clamp-1">
+                    {row.title_en || row.title || (isId ? "Layanan Baru (Kosong)" : "New Service (Empty)")}
+                  </h3>
+                  <p className="text-sm font-semibold text-slate-500 line-clamp-1">
+                    {row.title || (isId ? "Judul Bahasa Indonesia Kosong" : "No Indonesian Title")}
+                  </p>
+                </div>
+
+                <div className="flex flex-row md:flex-col gap-2 w-full md:w-auto shrink-0 border-t md:border-t-0 md:border-l border-slate-100 pt-4 md:pt-0 md:pl-6">
+                  {/* Tombol Edit Warna Hijau (Emerald) */}
+                  <button 
+                    onClick={() => updateRow(index, { isEditing: true })} 
+                    className="flex-1 md:flex-none px-5 py-2.5 bg-emerald-50 text-emerald-600 font-bold text-sm rounded-xl hover:bg-emerald-100 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Edit className="w-4 h-4"/> {isId ? "Edit Layanan" : "Edit Service"}
+                  </button>
+                  <button 
+                    onClick={() => setServiceToDelete(index)} 
+                    className="flex-1 md:flex-none px-5 py-2.5 bg-rose-50 text-rose-600 font-bold text-sm rounded-xl hover:bg-rose-100 transition-colors flex items-center justify-center gap-2"
+                  >
+                    <Trash2 className="w-4 h-4"/> {isId ? "Hapus" : "Delete"}
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
+          // ==== TAMPILAN FORM (EDIT MODE) ====
+          return (
+            <section key={row.key} className={`${box} animate-in fade-in slide-in-from-top-4 duration-400 ease-out`}>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-2">
+                <h2 className="text-xl font-extrabold text-slate-900 flex items-center gap-3">
+                  <span className="w-8 h-8 rounded-full bg-slate-100 text-slate-500 flex items-center justify-center text-sm">
+                    {index + 1}
+                  </span>
+                  {isId ? "Edit Layanan" : "Edit Service"}
+                </h2>
+                <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-3 py-1.5 rounded-full border border-emerald-100 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3 h-3" />
+                  {isId ? "Dipublikasikan" : "Published"}
+                </span>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                    Judul (ID)
+                  </label>
+                  <input
+                    className={inputCls}
+                    value={row.title}
+                    onChange={(e) => updateRow(index, { title: e.target.value })}
+                    placeholder={isId ? "Misal: Restorasi Ekosistem" : "e.g. Ecosystem Restoration"}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                    Title (EN)
+                  </label>
+                  <input
+                    className={inputCls}
+                    value={row.title_en}
+                    onChange={(e) => updateRow(index, { title_en: e.target.value })}
+                    placeholder="e.g. Ecosystem Restoration"
+                  />
+                </div>
+              </div>
+
+              <div className="grid md:grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                    Konten (ID)
+                  </label>
+                  <div className="rounded-2xl overflow-hidden border border-slate-300 shadow-sm bg-white">
+                    <RichTextEditor
+                      value={row.content}
+                      onChange={(html) => updateRow(index, { content: html })}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                    Content (EN)
+                  </label>
+                  <div className="rounded-2xl overflow-hidden border border-slate-300 shadow-sm bg-white">
+                    <RichTextEditor
+                      value={row.content_en}
+                      onChange={(html) => updateRow(index, { content_en: html })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <div className="flex items-center justify-between mb-3">
+                  <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                    {isId ? "Gambar Layanan" : "Service Image"}
+                  </label>
+                  <span className="text-[11px] font-bold px-2.5 py-1 bg-slate-100 text-slate-500 rounded-full">
+                    Ratio: 16:9 atau 4:3
+                  </span>
+                </div>
+
+                {row.preview ? (
+                  <div className="relative w-full aspect-[21/9] md:aspect-video rounded-2xl overflow-hidden border-4 border-white shadow-[0_8px_30px_rgb(0,0,0,0.12)] group">
+                    <img src={row.preview} alt="" className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                    <div className="absolute inset-0 bg-slate-900/0 group-hover:bg-slate-900/30 transition-colors duration-300 flex items-start justify-end gap-2 p-4 opacity-0 group-hover:opacity-100">
+                      <label className="inline-flex items-center gap-2 px-4 py-2 bg-white/90 backdrop-blur-md text-slate-700 text-sm font-bold rounded-xl hover:bg-white hover:scale-105 transition-all shadow-lg cursor-pointer">
+                        <ImagePlus className="w-4 h-4" />
+                        {isId ? "Ganti" : "Change"}
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={(e) => openCrop(index, e)}
+                        />
+                      </label>
+
+                      <button
+                        type="button"
+                        onClick={() => updateRow(index, { preview: null, file: null })}
+                        className="inline-flex items-center gap-2 px-4 py-2 bg-rose-600/90 backdrop-blur-md text-white text-sm font-bold rounded-xl hover:bg-rose-600 hover:scale-105 transition-all shadow-lg"
+                        title={isId ? "Hapus Foto" : "Remove Image"}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                        {isId ? "Hapus" : "Delete"}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-full p-8 border-2 border-dashed border-slate-300 rounded-2xl bg-white hover:bg-emerald-50 hover:border-emerald-300 transition-all cursor-pointer group">
+                    <div className="w-12 h-12 bg-slate-50 rounded-xl shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 group-hover:text-emerald-600 transition-all text-slate-400">
+                      <ImagePlus className="w-5 h-5" />
+                    </div>
+                    <span className="text-[13px] font-bold text-slate-700 mb-1">
+                      {isId ? "Pilih & Crop Gambar" : "Choose & Crop Image"}
+                    </span>
+                    <span className="text-[11px] font-medium text-slate-400">
+                      {isId ? "Format JPG, PNG, WEBP didukung" : "JPG, PNG, WEBP formats supported"}
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(e) => openCrop(index, e)}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* ACTION BOTTOM DI DALAM FORM (TUTUP FORM KIRI, SIMPAN KANAN) */}
+              <div className="flex flex-col-reverse sm:flex-row items-center justify-between pt-6 border-t border-slate-100 mt-4 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!row.id) {
+                      setRows((prev) => prev.filter((_, i) => i !== index));
+                    } else {
+                      updateRow(index, { isEditing: false });
+                    }
+                  }}
+                  className="w-full sm:w-auto px-6 py-3 rounded-xl border border-slate-200 bg-white text-slate-600 font-bold hover:bg-slate-50 shadow-sm transition-colors"
+                >
+                  {isId ? "Batalkan" : "Cancel"}
+                </button>
+                
+                <button
+                  type="button"
+                  onClick={() => updateRow(index, { isEditing: false })}
+                  className="w-full sm:w-auto inline-flex justify-center items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-500 shadow-md shadow-emerald-600/20 transition-all active:scale-95"
+                >
+                  <Save className="w-4 h-4" />
+                  {isId ? "Simpan Perubahan" : "Save Changes"}
+                </button>
+              </div>
+            </section>
+          );
+        })}
       </div>
 
-      {/* BOTTOM ACTION BAR */}
+      {/* BOTTOM ACTION BAR (TETAP ADA SEBAGAI GLOBAL SAVE) */}
       <div className="mt-10 pt-8 border-t border-slate-200/60 flex flex-col-reverse sm:flex-row items-center justify-between gap-4 pb-12">
         <button
           type="button"
@@ -610,7 +682,7 @@ export default function AdminServicesPage() {
           )}
           {saving 
             ? (isId ? "Menyimpan ke Server..." : "Saving to Server...") 
-            : (isId ? "Simpan Semua Perubahan" : "Save All Changes")}
+            : (isId ? "Simpan Semua Data" : "Save All to Server")}
         </button>
       </div>
 

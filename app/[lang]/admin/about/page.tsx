@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams } from "next/navigation";
 import {
   ImagePlus,
@@ -15,11 +15,15 @@ import {
   ShieldCheck,
   AlertTriangle,
   CheckCircle2,
+  Edit,
+  Users,
+  Camera,
 } from "lucide-react";
 import ImageCropModal from "@/components/ImageCropModal";
 import RichTextEditor from "@/components/admin/RichTextEditor";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
+const API_URL =
+  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api/v1";
 const BACKEND_ORIGIN = API_URL.replace(/\/api\/v1\/?$/, "");
 
 const SLUGS = {
@@ -44,8 +48,20 @@ type Article = {
   image_url?: string | null;
 };
 
+type TeamMember = {
+  id: number;
+  name: string;
+  role: string;
+  role_en?: string | null;
+  description?: string | null;
+  description_en?: string | null;
+  image_url?: string | null;
+  order: number;
+  is_active: boolean;
+};
+
 type ImgSlot = { preview: string | null; file: File | null };
-type CropTarget = "hero" | "body" | "g1" | "g2" | "g3";
+type CropTarget = "hero" | "body" | "g1" | "g2" | "g3" | "team";
 type IdKey = keyof typeof SLUGS;
 
 function resolveImageUrl(url?: string | null) {
@@ -80,7 +96,9 @@ function parseList(content: string): string[] {
   }
   const lines = content
     .split("\n")
-    .map((l) => l.replace(/^[-•*]\s*/, "").replace(/^\d+[\.\)]\s*/, "").trim())
+    .map((l) =>
+      l.replace(/^[-•*]\s*/, "").replace(/^\d+[\.\)]\s*/, "").trim()
+    )
     .filter(Boolean);
   return lines.length ? lines : [""];
 }
@@ -141,22 +159,41 @@ export default function AdminAboutPage() {
   const [cropSrc, setCropSrc] = useState<string | null>(null);
   const [cropTarget, setCropTarget] = useState<CropTarget | null>(null);
   const [deletingImg, setDeletingImg] = useState<IdKey | null>(null);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    key: IdKey;
+    onClear: () => void;
+  } | null>(null);
 
-  // State untuk mengontrol pop-up konfirmasi hapus gambar custom
-  const [deleteConfirm, setDeleteConfirm] = useState<{ key: IdKey; onClear: () => void } | null>(null);
+  // Team Member States & Refs
+  const teamFormRef = useRef<HTMLDivElement>(null);
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([]);
+  const [teamName, setTeamName] = useState("");
+  const [teamRole, setTeamRole] = useState("");
+  const [teamRoleEn, setTeamRoleEn] = useState("");
+  const [teamDescription, setTeamDescription] = useState("");
+  const [teamDescriptionEn, setTeamDescriptionEn] = useState("");
+  const [teamImg, setTeamImg] = useState<ImgSlot>({ preview: null, file: null });
+  const [editingTeamId, setEditingTeamId] = useState<number | null>(null);
+  const [savingTeam, setSavingTeam] = useState(false);
 
-  const token = () => localStorage.getItem("access_token");
+  // State Delete Team Member Modal
+  const [memberToDelete, setMemberToDelete] = useState<number | null>(null);
+  const [isDeletingMember, setIsDeletingMember] = useState(false);
 
-  // Auto-dismiss popup modal (Hanya dismiss jika tidak ada popup deleteConfirm yang aktif)
+  const token = () =>
+    typeof window !== "undefined"
+      ? localStorage.getItem("access_token") || localStorage.getItem("token")
+      : null;
+
   useEffect(() => {
-    if (success || (error && !deleteConfirm)) {
+    if (success || (error && !deleteConfirm && memberToDelete === null)) {
       const timer = setTimeout(() => {
         setSuccess(null);
-        if (!deleteConfirm) setError(null);
+        if (!deleteConfirm && memberToDelete === null) setError(null);
       }, 5000);
       return () => clearTimeout(timer);
     }
-  }, [success, error, deleteConfirm]);
+  }, [success, error, deleteConfirm, memberToDelete]);
 
   useEffect(() => {
     const load = async () => {
@@ -205,6 +242,7 @@ export default function AdminAboutPage() {
           );
           setHeroImg({ preview: resolveImageUrl(hero.image_url), file: null });
         }
+
         if (body) {
           setBodyTitle(body.title || "");
           setBodyTitleEn(body.title_en || "");
@@ -212,6 +250,7 @@ export default function AdminAboutPage() {
           setBodyContentEn(body.content_en || "");
           setBodyImg({ preview: resolveImageUrl(body.image_url), file: null });
         }
+
         if (vision) {
           setVisionTitle(vision.title || "");
           setVisionTitleEn(vision.title_en || "");
@@ -230,21 +269,34 @@ export default function AdminAboutPage() {
               : ""
           );
         }
+
         if (mission) {
           setMissionTitle(mission.title || "");
           setMissionTitleEn(mission.title_en || "");
           setMissionItems(parseList(mission.content || ""));
           setMissionItemsEn(parseList(mission.content_en || ""));
         }
-        if (gallery1) setG1({ preview: resolveImageUrl(gallery1.image_url), file: null });
-        if (gallery2) setG2({ preview: resolveImageUrl(gallery2.image_url), file: null });
-        if (gallery3) setG3({ preview: resolveImageUrl(gallery3.image_url), file: null });
+
+        if (gallery1)
+          setG1({ preview: resolveImageUrl(gallery1.image_url), file: null });
+        if (gallery2)
+          setG2({ preview: resolveImageUrl(gallery2.image_url), file: null });
+        if (gallery3)
+          setG3({ preview: resolveImageUrl(gallery3.image_url), file: null });
+
+        // Load team
+        const teamRes = await fetch(`${API_URL}/team-members/`);
+        if (teamRes.ok) {
+          const teamData = await teamRes.json();
+          setTeamMembers(Array.isArray(teamData) ? teamData : []);
+        }
       } catch (err: any) {
         setError(err.message);
       } finally {
         setLoading(false);
       }
     };
+
     load();
   }, []);
 
@@ -306,14 +358,26 @@ export default function AdminAboutPage() {
       headers: { Authorization: `Bearer ${token()}` },
       body: fd,
     });
-    if (!res.ok) throw new Error(isId ? "Upload gambar gagal" : "Image upload failed");
+    if (!res.ok)
+      throw new Error(isId ? "Upload gambar gagal" : "Image upload failed");
   };
 
-  // Memicu pop-up kustom (bukan alert bawaan browser)
+  const uploadTeamMemberImage = async (memberId: number, file: File) => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch(`${API_URL}/team-members/${memberId}/image`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token()}` },
+      body: fd,
+    });
+    if (!res.ok)
+      throw new Error(isId ? "Upload foto tim gagal" : "Team image upload failed");
+    return await res.json();
+  };
+
   const promptDeleteImage = (key: IdKey, onClear: () => void) => {
     const articleId = ids[key];
     if (!articleId) {
-      // Jika belum disave di DB, cukup hapus preview lokasinya saja
       onClear();
       return;
     }
@@ -321,7 +385,6 @@ export default function AdminAboutPage() {
     setError(null);
   };
 
-  // Menjalankan proses hapus dari server
   const executeDeleteImage = async () => {
     if (!deleteConfirm) return;
     const { key, onClear } = deleteConfirm;
@@ -331,7 +394,8 @@ export default function AdminAboutPage() {
     setError(null);
     try {
       const t = token();
-      if (!t) throw new Error(isId ? "Silakan login ulang" : "Please sign in again");
+      if (!t)
+        throw new Error(isId ? "Silakan login ulang" : "Please sign in again");
 
       const res = await fetch(`${API_URL}/articles/${articleId}/image`, {
         method: "DELETE",
@@ -344,13 +408,15 @@ export default function AdminAboutPage() {
           typeof data.detail === "string"
             ? data.detail
             : isId
-            ? "Gagal menghapus gambar"
-            : "Failed to delete image";
+              ? "Gagal menghapus gambar"
+              : "Failed to delete image";
         throw new Error(msg);
       }
 
       onClear();
-      setSuccess(isId ? "Gambar berhasil dihapus!" : "Image successfully deleted!");
+      setSuccess(
+        isId ? "Gambar berhasil dihapus!" : "Image successfully deleted!"
+      );
     } catch (err: any) {
       setError(err.message || "Error");
     } finally {
@@ -425,7 +491,11 @@ export default function AdminAboutPage() {
       setG2((p) => ({ ...p, file: null }));
       setG3((p) => ({ ...p, file: null }));
 
-      setSuccess(isId ? "Semua perubahan berhasil disimpan!" : "All changes saved successfully!");
+      setSuccess(
+        isId
+          ? "Semua perubahan berhasil disimpan!"
+          : "All changes saved successfully!"
+      );
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: any) {
       setError(err.message || "Error occurred during save");
@@ -434,7 +504,127 @@ export default function AdminAboutPage() {
     }
   };
 
-  const openCrop = (target: CropTarget, e: React.ChangeEvent<HTMLInputElement>) => {
+  // Team CRUD
+  const saveTeamMember = async () => {
+    if (!teamName.trim() || !teamRole.trim()) {
+      setError(isId ? "Nama dan Role wajib diisi" : "Name and Role are required");
+      return;
+    }
+
+    setSavingTeam(true);
+    setError(null);
+
+    try {
+      const body = {
+        name: teamName.trim(),
+        role: teamRole.trim(),
+        role_en: teamRoleEn.trim() || null,
+        description: teamDescription.trim() || null,
+        description_en: teamDescriptionEn.trim() || null,
+        order: editingTeamId
+          ? teamMembers.find((m) => m.id === editingTeamId)?.order ??
+            teamMembers.length
+          : teamMembers.length,
+        is_active: true,
+      };
+
+      const url = editingTeamId
+        ? `${API_URL}/team-members/${editingTeamId}`
+        : `${API_URL}/team-members/`;
+
+      const res = await fetch(url, {
+        method: editingTeamId ? "PUT" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token()}`,
+        },
+        body: JSON.stringify(body),
+      });
+
+      if (!res.ok) throw new Error(isId ? "Gagal menyimpan anggota" : "Failed to save member");
+
+      let data = await res.json();
+
+      if (teamImg.file && data.id) {
+        try {
+          const updated = await uploadTeamMemberImage(data.id, teamImg.file);
+          if (updated?.image_url) {
+            data = {
+              ...data,
+              image_url: updated.image_url,
+            };
+          }
+        } catch (imgErr: any) {
+          console.error("Team image upload error:", imgErr);
+        }
+      }
+
+      if (editingTeamId) {
+        setTeamMembers((prev) =>
+          prev.map((item) => (item.id === data.id ? data : item))
+        );
+      } else {
+        setTeamMembers((prev) => [...prev, data]);
+      }
+
+      setTeamName("");
+      setTeamRole("");
+      setTeamRoleEn("");
+      setTeamDescription("");
+      setTeamDescriptionEn("");
+      setTeamImg({ preview: null, file: null });
+      setEditingTeamId(null);
+      setSuccess(
+        isId ? "Anggota tim berhasil disimpan!" : "Team member saved!"
+      );
+    } catch (err: any) {
+      setError(err.message || "Error");
+    } finally {
+      setSavingTeam(false);
+    }
+  };
+
+  const executeDeleteTeamMember = async () => {
+    if (memberToDelete === null) return;
+
+    setIsDeletingMember(true);
+    setError(null);
+
+    try {
+      const res = await fetch(`${API_URL}/team-members/${memberToDelete}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token()}` },
+      });
+      if (!res.ok) throw new Error(isId ? "Gagal menghapus anggota tim" : "Failed to delete team member");
+      
+      setTeamMembers((prev) => prev.filter((item) => item.id !== memberToDelete));
+      setSuccess(isId ? "Anggota tim berhasil dihapus!" : "Team member successfully deleted!");
+    } catch (err: any) {
+      setError(err.message || "Error");
+    } finally {
+      setIsDeletingMember(false);
+      setMemberToDelete(null);
+    }
+  };
+
+  const editTeamMember = (item: TeamMember) => {
+    setEditingTeamId(item.id);
+    setTeamName(item.name);
+    setTeamRole(item.role);
+    setTeamRoleEn(item.role_en || "");
+    setTeamDescription(item.description || "");
+    setTeamDescriptionEn(item.description_en || "");
+    setTeamImg({ preview: resolveImageUrl(item.image_url), file: null });
+    
+    setTimeout(() => {
+      teamFormRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 100);
+  };
+
+  const openCrop = (
+    target: CropTarget,
+    e: React.ChangeEvent<HTMLInputElement>
+  ) => {
     const file = e.target.files?.[0];
     if (!file) return;
     setCropTarget(target);
@@ -442,7 +632,8 @@ export default function AdminAboutPage() {
     e.target.value = "";
   };
 
-  const cropAspect = cropTarget === "hero" ? 16 / 9 : 4 / 3;
+  const cropAspect =
+    cropTarget === "hero" ? 16 / 9 : cropTarget === "team" ? 1 / 1 : 4 / 3;
 
   const ImageField = ({
     label,
@@ -493,21 +684,23 @@ export default function AdminAboutPage() {
                   ? "Menghapus..."
                   : "Removing..."
                 : isId
-                ? "Hapus Gambar"
-                : "Remove Image"}
+                  ? "Hapus Gambar"
+                  : "Remove Image"}
             </button>
           </div>
         </div>
       ) : (
-        <label className="flex flex-col items-center justify-center w-full p-8 border-2 border-dashed border-slate-200 rounded-2xl bg-slate-50 hover:bg-emerald-50 hover:border-emerald-300 transition-all cursor-pointer group">
-          <div className="w-12 h-12 bg-white rounded-xl shadow-sm border border-slate-100 flex items-center justify-center mb-3 group-hover:scale-110 group-hover:text-emerald-600 transition-all text-slate-400">
+        <label className="flex flex-col items-center justify-center w-full p-8 border-2 border-dashed border-slate-300 rounded-2xl bg-white hover:bg-emerald-50 hover:border-emerald-400 transition-all cursor-pointer group shadow-sm text-center">
+          <div className="w-12 h-12 bg-slate-50 rounded-xl shadow-sm flex items-center justify-center mb-3 group-hover:scale-110 group-hover:text-emerald-600 transition-all text-slate-400">
             <ImagePlus className="w-5 h-5" />
           </div>
           <span className="text-[13px] font-bold text-slate-700 mb-1">
             {isId ? "Pilih & Crop Gambar" : "Choose & Crop Image"}
           </span>
           <span className="text-[11px] font-medium text-slate-400">
-            {isId ? "Format JPG, PNG, WEBP didukung" : "JPG, PNG, WEBP formats supported"}
+            {isId
+              ? "Format JPG, PNG, WEBP didukung"
+              : "JPG, PNG, WEBP formats supported"}
           </span>
           <input
             type="file"
@@ -533,14 +726,15 @@ export default function AdminAboutPage() {
 
   const box =
     "bg-white border border-slate-200/60 rounded-[2rem] p-8 md:p-10 shadow-[0_8px_30px_rgb(0,0,0,0.03)] space-y-6 relative overflow-hidden";
+    
+  // Unified Input Style: White background, visible border, subtle shadow
   const inputCls =
-    "w-full px-5 py-4 rounded-2xl border-2 border-transparent bg-slate-50 focus:bg-white focus:border-emerald-400 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all font-medium text-slate-900 placeholder:text-slate-400";
+    "w-full px-5 py-4 rounded-2xl border border-slate-300 bg-white focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 outline-none transition-all font-medium text-slate-900 placeholder:text-slate-400 shadow-sm";
 
   return (
     <div className="max-w-5xl mx-auto pb-20 font-sans relative">
-      
-      {/* GLOBAL POPUP MODAL NOTIFICATION (Success / General Error) */}
-      {(error && !deleteConfirm) || success ? (
+      {/* GLOBAL POPUP */}
+      {((error && !deleteConfirm && memberToDelete === null) || success) && (
         <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-sm overflow-hidden p-8 text-center relative animate-in zoom-in-[0.5] fade-in duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
             {error ? (
@@ -584,10 +778,10 @@ export default function AdminAboutPage() {
             )}
           </div>
         </div>
-      ) : null}
+      )}
 
-      {/* CONFIRMATION POPUP MODAL FOR DELETING IMAGE */}
-      {deleteConfirm && (
+      {/* CUSTOM DELETE TEAM MEMBER CONFIRMATION MODAL */}
+      {memberToDelete !== null && (
         <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-300">
           <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden relative animate-in zoom-in-[0.5] fade-in duration-500 ease-[cubic-bezier(0.34,1.56,0.64,1)]">
             <div className="p-10 text-center">
@@ -597,38 +791,36 @@ export default function AdminAboutPage() {
               </div>
 
               <h3 className="text-2xl font-extrabold text-slate-800 mb-3 tracking-tight">
-                {isId ? "Hapus Gambar Ini?" : "Delete This Image?"}
+                {isId ? "Hapus Anggota Tim Ini?" : "Delete This Team Member?"}
               </h3>
 
               <p className="text-slate-500 text-[14.5px] mb-8 leading-relaxed px-2">
+                {isId ? "Apakah Anda yakin ingin menghapus anggota" : "Are you sure you want to delete member"}{" "}
+                <span className="font-extrabold text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md inline-block mx-1 truncate max-w-[200px] align-bottom">
+                  {teamMembers.find((m) => m.id === memberToDelete)?.name || (isId ? "Anggota" : "Member")}
+                </span>
+                ?{" "}
                 {isId
-                  ? "Apakah Anda yakin ingin menghapus gambar ini dari server? Tindakan ini permanen."
-                  : "Are you sure you want to delete this image from the server? This action is permanent."}
+                  ? "Tindakan ini permanen dan tidak dapat dibatalkan."
+                  : "This action is permanent and cannot be undone."}
               </p>
-
-              {error && (
-                <p className="text-[13px] text-rose-700 font-bold mb-6 bg-rose-50 p-4 rounded-xl border border-rose-200">
-                  {error}
-                </p>
-              )}
 
               <div className="flex flex-col-reverse sm:flex-row gap-3">
                 <button
-                  onClick={() => {
-                    setDeleteConfirm(null);
-                    setError(null);
-                  }}
-                  disabled={deletingImg !== null}
+                  type="button"
+                  onClick={() => setMemberToDelete(null)}
+                  disabled={isDeletingMember}
                   className="flex-1 py-4 bg-slate-50 border border-slate-200 text-slate-600 text-[14.5px] font-bold rounded-2xl hover:bg-slate-100 transition-colors disabled:opacity-50 active:scale-95"
                 >
                   {isId ? "Batalkan" : "Cancel"}
                 </button>
                 <button
-                  onClick={executeDeleteImage}
-                  disabled={deletingImg !== null}
+                  type="button"
+                  onClick={executeDeleteTeamMember}
+                  disabled={isDeletingMember}
                   className="flex-1 py-4 bg-rose-600 text-white text-[14.5px] font-bold rounded-2xl hover:bg-rose-700 disabled:opacity-80 flex items-center justify-center gap-2 transition-all duration-300 shadow-md shadow-rose-600/20 active:scale-95"
                 >
-                  {deletingImg !== null ? (
+                  {isDeletingMember ? (
                     <div className="w-5 h-5 border-2 border-rose-200 border-t-white rounded-full animate-spin" />
                   ) : (
                     <>
@@ -643,8 +835,53 @@ export default function AdminAboutPage() {
         </div>
       )}
 
-      {/* TOP STICKY BAR */}
-      <div className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-4 p-4 md:px-8 md:py-5 mb-10 bg-white/80 backdrop-blur-2xl border-b border-slate-200/60 rounded-b-3xl md:rounded-3xl shadow-[0_10px_30px_-15px_rgba(0,0,0,0.08)] mx-[-1rem] md:mx-0 translate-y-[-1rem] md:translate-y-0">
+      {/* DELETE IMAGE CONFIRM */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-[2.5rem] shadow-2xl w-full max-w-md overflow-hidden p-10 text-center">
+            <div className="w-20 h-20 bg-rose-50 rounded-[1.8rem] flex items-center justify-center mx-auto mb-6 border border-rose-100">
+              <AlertTriangle className="w-10 h-10 text-rose-500" />
+            </div>
+            <h3 className="text-2xl font-extrabold text-slate-800 mb-3">
+              {isId ? "Hapus Gambar Ini?" : "Delete This Image?"}
+            </h3>
+            <p className="text-slate-500 text-[14.5px] mb-8">
+              {isId ? "Tindakan ini permanen." : "This action is permanent."}
+            </p>
+            <div className="flex flex-col-reverse sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setDeleteConfirm(null);
+                  setError(null);
+                }}
+                disabled={deletingImg !== null}
+                className="flex-1 py-4 bg-slate-50 border border-slate-200 text-slate-600 font-bold rounded-2xl"
+              >
+                {isId ? "Batalkan" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                onClick={executeDeleteImage}
+                disabled={deletingImg !== null}
+                className="flex-1 py-4 bg-rose-600 text-white font-bold rounded-2xl flex items-center justify-center gap-2"
+              >
+                {deletingImg !== null ? (
+                  <div className="w-5 h-5 border-2 border-rose-200 border-t-white rounded-full animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    {isId ? "Ya, Hapus" : "Yes, Delete"}
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TOP BAR */}
+      <div className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-4 p-4 md:px-8 md:py-5 mb-10 bg-white/80 backdrop-blur-2xl border-b border-slate-200/60 rounded-b-3xl md:rounded-3xl shadow-[0_10px_30px_-15px_rgba(0,0,0,0.08)]">
         <div>
           <h1 className="text-2xl md:text-3xl font-extrabold text-slate-900 mb-1 flex items-center gap-3">
             <ShieldCheck className="w-7 h-7 text-emerald-500" />
@@ -652,8 +889,8 @@ export default function AdminAboutPage() {
           </h1>
           <p className="text-slate-500 font-medium text-[13px] hidden md:block">
             {isId
-              ? "Isi versi Indonesia (ID) dan English (EN). Publik memakai bahasa sesuai URL."
-              : "Fill Indonesian (ID) and English (EN). Public site uses language from the URL."}
+              ? "Konten About + Team Credit"
+              : "About content + Team Credit"}
           </p>
         </div>
 
@@ -661,7 +898,7 @@ export default function AdminAboutPage() {
           type="button"
           onClick={handleSaveAll}
           disabled={saving}
-          className="inline-flex items-center gap-2 px-6 py-3.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 hover:shadow-lg hover:shadow-emerald-600/20 hover:-translate-y-0.5 active:scale-95 transition-all duration-300 disabled:opacity-60"
+          className="inline-flex items-center gap-2 px-6 py-3.5 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-500 disabled:opacity-60"
         >
           {saving ? (
             <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -673,20 +910,22 @@ export default function AdminAboutPage() {
               ? "Menyimpan..."
               : "Saving..."
             : isId
-            ? "Simpan Semua"
-            : "Save All Changes"}
+              ? "Simpan Semua"
+              : "Save All Changes"}
         </button>
       </div>
 
       <div className="space-y-8">
-        {/* HERO */}
+        {/* 1. HERO */}
         <section className={box}>
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-2">
             <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
               <LayoutTemplate className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-extrabold text-slate-900">1. Hero Section</h2>
+              <h2 className="text-xl font-extrabold text-slate-900">
+                1. Hero Section
+              </h2>
               <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
                 slug: {SLUGS.hero}
               </p>
@@ -698,13 +937,21 @@ export default function AdminAboutPage() {
               <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
                 Judul Hero (ID)
               </label>
-              <input className={inputCls} value={heroTitle} onChange={(e) => setHeroTitle(e.target.value)} />
+              <input
+                className={inputCls}
+                value={heroTitle}
+                onChange={(e) => setHeroTitle(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
                 Hero Title (EN)
               </label>
-              <input className={inputCls} value={heroTitleEn} onChange={(e) => setHeroTitleEn(e.target.value)} />
+              <input
+                className={inputCls}
+                value={heroTitleEn}
+                onChange={(e) => setHeroTitleEn(e.target.value)}
+              />
             </div>
           </div>
 
@@ -713,13 +960,23 @@ export default function AdminAboutPage() {
               <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
                 Subtitle (ID)
               </label>
-              <textarea rows={2} className={`${inputCls} resize-none`} value={heroLabel} onChange={(e) => setHeroLabel(e.target.value)} />
+              <textarea
+                rows={2}
+                className={`${inputCls} resize-none`}
+                value={heroLabel}
+                onChange={(e) => setHeroLabel(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
                 Subtitle (EN)
               </label>
-              <textarea rows={2} className={`${inputCls} resize-none`} value={heroLabelEn} onChange={(e) => setHeroLabelEn(e.target.value)} />
+              <textarea
+                rows={2}
+                className={`${inputCls} resize-none`}
+                value={heroLabelEn}
+                onChange={(e) => setHeroLabelEn(e.target.value)}
+              />
             </div>
           </div>
 
@@ -733,7 +990,7 @@ export default function AdminAboutPage() {
           />
         </section>
 
-        {/* BODY */}
+        {/* 2. BODY */}
         <section className={box}>
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-2">
             <div className="w-10 h-10 rounded-xl bg-cyan-50 text-cyan-600 flex items-center justify-center">
@@ -754,13 +1011,21 @@ export default function AdminAboutPage() {
               <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
                 Judul (ID)
               </label>
-              <input className={inputCls} value={bodyTitle} onChange={(e) => setBodyTitle(e.target.value)} />
+              <input
+                className={inputCls}
+                value={bodyTitle}
+                onChange={(e) => setBodyTitle(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
               <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
                 Title (EN)
               </label>
-              <input className={inputCls} value={bodyTitleEn} onChange={(e) => setBodyTitleEn(e.target.value)} />
+              <input
+                className={inputCls}
+                value={bodyTitleEn}
+                onChange={(e) => setBodyTitleEn(e.target.value)}
+              />
             </div>
           </div>
 
@@ -769,7 +1034,7 @@ export default function AdminAboutPage() {
               <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
                 Konten (ID)
               </label>
-              <div className="rounded-2xl overflow-hidden border-2 border-transparent bg-slate-50">
+              <div className="rounded-2xl overflow-hidden border border-slate-300 shadow-sm bg-white">
                 <RichTextEditor value={bodyContent} onChange={setBodyContent} />
               </div>
             </div>
@@ -777,8 +1042,11 @@ export default function AdminAboutPage() {
               <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
                 Content (EN)
               </label>
-              <div className="rounded-2xl overflow-hidden border-2 border-transparent bg-slate-50">
-                <RichTextEditor value={bodyContentEn} onChange={setBodyContentEn} />
+              <div className="rounded-2xl overflow-hidden border border-slate-300 shadow-sm bg-white">
+                <RichTextEditor
+                  value={bodyContentEn}
+                  onChange={setBodyContentEn}
+                />
               </div>
             </div>
           </div>
@@ -793,7 +1061,7 @@ export default function AdminAboutPage() {
           />
         </section>
 
-        {/* GALLERY */}
+        {/* 3. GALLERY */}
         <section className={box}>
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-2">
             <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
@@ -806,13 +1074,34 @@ export default function AdminAboutPage() {
             </div>
           </div>
           <div className="grid sm:grid-cols-3 gap-6">
-            <ImageField label="Gallery 1" slot={g1} target="g1" ratio="4/3" idKey="gallery1" onClear={() => setG1({ preview: null, file: null })} />
-            <ImageField label="Gallery 2" slot={g2} target="g2" ratio="4/3" idKey="gallery2" onClear={() => setG2({ preview: null, file: null })} />
-            <ImageField label="Gallery 3" slot={g3} target="g3" ratio="4/3" idKey="gallery3" onClear={() => setG3({ preview: null, file: null })} />
+            <ImageField
+              label="Gallery 1"
+              slot={g1}
+              target="g1"
+              ratio="4/3"
+              idKey="gallery1"
+              onClear={() => setG1({ preview: null, file: null })}
+            />
+            <ImageField
+              label="Gallery 2"
+              slot={g2}
+              target="g2"
+              ratio="4/3"
+              idKey="gallery2"
+              onClear={() => setG2({ preview: null, file: null })}
+            />
+            <ImageField
+              label="Gallery 3"
+              slot={g3}
+              target="g3"
+              ratio="4/3"
+              idKey="gallery3"
+              onClear={() => setG3({ preview: null, file: null })}
+            />
           </div>
         </section>
 
-        {/* VISION */}
+        {/* 4. VISION */}
         <section className={box}>
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-2">
             <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
@@ -824,45 +1113,85 @@ export default function AdminAboutPage() {
           </div>
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">Judul (ID)</label>
-              <input className={inputCls} value={visionTitle} onChange={(e) => setVisionTitle(e.target.value)} />
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                Judul (ID)
+              </label>
+              <input
+                className={inputCls}
+                value={visionTitle}
+                onChange={(e) => setVisionTitle(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
-              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">Title (EN)</label>
-              <input className={inputCls} value={visionTitleEn} onChange={(e) => setVisionTitleEn(e.target.value)} />
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                Title (EN)
+              </label>
+              <input
+                className={inputCls}
+                value={visionTitleEn}
+                onChange={(e) => setVisionTitleEn(e.target.value)}
+              />
             </div>
           </div>
           <div className="grid md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">Visi (ID)</label>
-              <textarea rows={4} className={`${inputCls} resize-none`} value={visionContent} onChange={(e) => setVisionContent(e.target.value)} />
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                Visi (ID)
+              </label>
+              <textarea
+                rows={4}
+                className={`${inputCls} resize-none`}
+                value={visionContent}
+                onChange={(e) => setVisionContent(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
-              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">Vision (EN)</label>
-              <textarea rows={4} className={`${inputCls} resize-none`} value={visionContentEn} onChange={(e) => setVisionContentEn(e.target.value)} />
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                Vision (EN)
+              </label>
+              <textarea
+                rows={4}
+                className={`${inputCls} resize-none`}
+                value={visionContentEn}
+                onChange={(e) => setVisionContentEn(e.target.value)}
+              />
             </div>
           </div>
         </section>
 
-        {/* MISSION */}
+        {/* 5. MISSION */}
         <section className={box}>
           <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-2">
             <div className="w-10 h-10 rounded-xl bg-fuchsia-50 text-fuchsia-600 flex items-center justify-center">
               <Target className="w-5 h-5" />
             </div>
             <div>
-              <h2 className="text-xl font-extrabold text-slate-900">5. Mission</h2>
+              <h2 className="text-xl font-extrabold text-slate-900">
+                5. Mission
+              </h2>
             </div>
           </div>
 
           <div className="grid md:grid-cols-2 gap-4 mb-4">
             <div className="space-y-2">
-              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">Judul (ID)</label>
-              <input className={inputCls} value={missionTitle} onChange={(e) => setMissionTitle(e.target.value)} />
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                Judul (ID)
+              </label>
+              <input
+                className={inputCls}
+                value={missionTitle}
+                onChange={(e) => setMissionTitle(e.target.value)}
+              />
             </div>
             <div className="space-y-2">
-              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">Title (EN)</label>
-              <input className={inputCls} value={missionTitleEn} onChange={(e) => setMissionTitleEn(e.target.value)} />
+              <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide">
+                Title (EN)
+              </label>
+              <input
+                className={inputCls}
+                value={missionTitleEn}
+                onChange={(e) => setMissionTitleEn(e.target.value)}
+              />
             </div>
           </div>
 
@@ -885,9 +1214,13 @@ export default function AdminAboutPage() {
                   <button
                     type="button"
                     onClick={() =>
-                      setMissionItems((prev) => (prev.length <= 1 ? [""] : prev.filter((_, i) => i !== index)))
+                      setMissionItems((prev) =>
+                        prev.length <= 1
+                          ? [""]
+                          : prev.filter((_, i) => i !== index)
+                      )
                     }
-                    className="p-4 rounded-2xl bg-rose-50 text-rose-600 shrink-0 hover:bg-rose-100 transition-colors"
+                    className="p-4 rounded-2xl bg-rose-50 text-rose-600 shrink-0 hover:bg-rose-100 shadow-sm"
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
@@ -896,7 +1229,7 @@ export default function AdminAboutPage() {
               <button
                 type="button"
                 onClick={() => setMissionItems((p) => [...p, ""])}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-50 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-50 text-sm font-bold text-emerald-700 hover:bg-emerald-100"
               >
                 <Plus className="w-4 h-4" /> Tambah (ID)
               </button>
@@ -921,10 +1254,12 @@ export default function AdminAboutPage() {
                     type="button"
                     onClick={() =>
                       setMissionItemsEn((prev) =>
-                        prev.length <= 1 ? [""] : prev.filter((_, i) => i !== index)
+                        prev.length <= 1
+                          ? [""]
+                          : prev.filter((_, i) => i !== index)
                       )
                     }
-                    className="p-4 rounded-2xl bg-rose-50 text-rose-600 shrink-0 hover:bg-rose-100 transition-colors"
+                    className="p-4 rounded-2xl bg-rose-50 text-rose-600 shrink-0 hover:bg-rose-100 shadow-sm"
                   >
                     <Trash2 className="w-5 h-5" />
                   </button>
@@ -933,7 +1268,7 @@ export default function AdminAboutPage() {
               <button
                 type="button"
                 onClick={() => setMissionItemsEn((p) => [...p, ""])}
-                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-50 text-sm font-bold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-emerald-50 text-sm font-bold text-emerald-700 hover:bg-emerald-100"
               >
                 <Plus className="w-4 h-4" /> Add (EN)
               </button>
@@ -941,13 +1276,259 @@ export default function AdminAboutPage() {
           </div>
         </section>
 
-        {/* BOTTOM SAVE BUTTON */}
+        {/* 6. TEAM CREDIT */}
+        <section className={box}>
+          <div className="flex items-center gap-3 border-b border-slate-100 pb-4 mb-2">
+            <div className="w-10 h-10 rounded-xl bg-violet-50 text-violet-600 flex items-center justify-center">
+              <Users className="w-5 h-5" />
+            </div>
+            <div>
+              <h2 className="text-xl font-extrabold text-slate-900">
+                6. Team Credit
+              </h2>
+              <p className="text-[11px] text-slate-400 font-bold uppercase tracking-wider">
+                {isId
+                  ? "Kelola profil dan foto anggota tim di halaman About"
+                  : "Manage team profile cards and photos on About page"}
+              </p>
+            </div>
+          </div>
+
+          <div ref={teamFormRef} className="bg-slate-50/70 border border-slate-200/80 rounded-2xl p-6 space-y-5">
+            <div className="grid md:grid-cols-12 gap-6 items-start">
+              
+              {/* UPLOAD FOTO TEAM MEMBER */}
+              <div className="md:col-span-4 flex flex-col items-center">
+                <label className="block text-[12px] font-bold text-slate-700 uppercase tracking-wide mb-3 self-start">
+                  {isId ? "Foto Anggota" : "Member Photo"}
+                </label>
+                
+                {teamImg.preview ? (
+                  <div className="relative w-40 h-40 rounded-2xl overflow-hidden border-4 border-white shadow-md group">
+                    <img
+                      src={teamImg.preview}
+                      alt="Team Member Preview"
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute inset-0 bg-slate-900/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <label className="p-2 bg-white text-slate-700 rounded-xl shadow hover:bg-emerald-50 hover:text-emerald-600 cursor-pointer transition-all">
+                        <Camera className="w-4 h-4" />
+                        <input
+                          type="file"
+                          accept="image/jpeg,image/png,image/webp"
+                          className="hidden"
+                          onChange={(e) => openCrop("team", e)}
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setTeamImg({ preview: null, file: null })}
+                        className="p-2 bg-rose-600 text-white rounded-xl shadow hover:bg-rose-700 transition-all"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label className="flex flex-col items-center justify-center w-40 h-40 border-2 border-dashed border-slate-300 rounded-2xl bg-white hover:bg-emerald-50 hover:border-emerald-400 transition-all cursor-pointer group shadow-sm text-center p-3">
+                    <div className="w-10 h-10 bg-slate-50 rounded-xl flex items-center justify-center mb-2 group-hover:scale-110 group-hover:text-emerald-600 text-slate-400 transition-all">
+                      <Camera className="w-5 h-5" />
+                    </div>
+                    <span className="text-xs font-bold text-slate-700">
+                      {isId ? "Pilih & Crop Foto" : "Choose & Crop"}
+                    </span>
+                    <span className="text-[10px] font-semibold text-slate-400 mt-1">
+                      Ratio 1:1
+                    </span>
+                    <input
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      className="hidden"
+                      onChange={(e) => openCrop("team", e)}
+                    />
+                  </label>
+                )}
+              </div>
+
+              {/* INPUT FIELDS TEAM */}
+              <div className="md:col-span-8 space-y-4">
+                <div className="space-y-1.5">
+                  <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                    {isId ? "Nama Lengkap" : "Full Name"}
+                  </label>
+                  <input
+                    className={inputCls}
+                    placeholder={isId ? "Misal: John Doe" : "e.g. John Doe"}
+                    value={teamName}
+                    onChange={(e) => setTeamName(e.target.value)}
+                  />
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                      {isId ? "Jabatan / Role (ID)" : "Role / Position (ID)"}
+                    </label>
+                    <input
+                      className={inputCls}
+                      placeholder={isId ? "Misal: Direktur Utama" : "e.g. Direktur Utama"}
+                      value={teamRole}
+                      onChange={(e) => setTeamRole(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                      {isId ? "Jabatan / Role (EN)" : "Role / Position (EN)"}
+                    </label>
+                    <input
+                      className={inputCls}
+                      placeholder={isId ? "Misal: Managing Director" : "e.g. Managing Director"}
+                      value={teamRoleEn}
+                      onChange={(e) => setTeamRoleEn(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                      {isId ? "Deskripsi (ID)" : "Description (ID)"}
+                    </label>
+                    <textarea
+                      className={`${inputCls} resize-none`}
+                      rows={3}
+                      placeholder={isId ? "Latar belakang..." : "Background description..."}
+                      value={teamDescription}
+                      onChange={(e) => setTeamDescription(e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="block text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                      {isId ? "Deskripsi (EN)" : "Description (EN)"}
+                    </label>
+                    <textarea
+                      className={`${inputCls} resize-none`}
+                      rows={3}
+                      placeholder={isId ? "Background description..." : "Background description..."}
+                      value={teamDescriptionEn}
+                      onChange={(e) => setTeamDescriptionEn(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-3 pt-4 border-t border-slate-200/60">
+              {editingTeamId && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setEditingTeamId(null);
+                    setTeamName("");
+                    setTeamRole("");
+                    setTeamRoleEn("");
+                    setTeamDescription("");
+                    setTeamDescriptionEn("");
+                    setTeamImg({ preview: null, file: null });
+                  }}
+                  className="px-5 py-3 rounded-xl border border-slate-300 bg-white text-slate-600 font-bold hover:bg-slate-50 transition-colors shadow-sm"
+                >
+                  {isId ? "Batal" : "Cancel"}
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={saveTeamMember}
+                disabled={savingTeam}
+                className="inline-flex items-center gap-2 px-6 py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-500 disabled:opacity-60 transition-all shadow-md shadow-emerald-600/20"
+              >
+                {savingTeam ? (
+                  <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                ) : editingTeamId ? (
+                  <Save className="w-4 h-4" />
+                ) : (
+                  <Plus className="w-4 h-4" />
+                )}
+                {editingTeamId
+                  ? isId
+                    ? "Perbarui Anggota"
+                    : "Update Member"
+                  : isId
+                    ? "Simpan Anggota Baru"
+                    : "Add Team Member"}
+              </button>
+            </div>
+          </div>
+
+          {/* DAFTAR CARD ANGGOTA TIM */}
+          <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-5 mt-6">
+            {teamMembers.map((member) => (
+              <div
+                key={member.id}
+                className="border border-slate-200/80 rounded-2xl p-5 bg-white shadow-sm flex flex-col justify-between hover:border-emerald-200 transition-all"
+              >
+                <div>
+                  <div className="w-full aspect-square rounded-xl overflow-hidden mb-4 bg-slate-100 border border-slate-100">
+                    {member.image_url ? (
+                      <img
+                        src={resolveImageUrl(member.image_url) || ""}
+                        alt={member.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="w-full h-full flex flex-col items-center justify-center text-slate-300">
+                        <Users className="w-12 h-12 mb-1" />
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                          {isId ? "Tanpa Foto" : "No Photo"}
+                        </span>
+                      </div>
+                    )}
+                  </div>
+
+                  <h3 className="font-extrabold text-slate-900 text-base leading-snug">
+                    {member.name}
+                  </h3>
+                  <p className="text-xs text-emerald-600 font-bold mt-1">
+                    {isId ? member.role : (member.role_en || member.role)}
+                  </p>
+                  {member.description && (
+                    <p className="text-xs text-slate-500 mt-2.5 line-clamp-3 leading-relaxed">
+                      {isId ? member.description : (member.description_en || member.description)}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-2 mt-5 pt-4 border-t border-slate-100">
+                  <button
+                    type="button"
+                    onClick={() => editTeamMember(member)}
+                    className="flex-1 py-2 rounded-xl bg-blue-50 text-blue-600 text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-blue-100 transition-colors"
+                  >
+                    <Edit className="w-3.5 h-3.5" />
+                    Edit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setMemberToDelete(member.id)}
+                    className="flex-1 py-2 rounded-xl bg-rose-50 text-rose-600 text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-rose-100 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    Delete
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* BOTTOM SAVE */}
         <div className="flex justify-end pt-6 pb-12">
           <button
             type="button"
             onClick={handleSaveAll}
             disabled={saving}
-            className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-500 hover:shadow-xl hover:shadow-emerald-600/20 hover:-translate-y-1 active:scale-95 transition-all duration-300 disabled:opacity-60 text-[15px] min-w-[200px]"
+            className="inline-flex items-center justify-center gap-2 px-8 py-4 bg-emerald-600 text-white font-bold rounded-2xl hover:bg-emerald-500 disabled:opacity-60 min-w-[200px] shadow-lg shadow-emerald-600/20"
           >
             {saving ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
@@ -959,8 +1540,8 @@ export default function AdminAboutPage() {
                 ? "Menyimpan..."
                 : "Saving..."
               : isId
-              ? "Simpan Semua Perubahan"
-              : "Save All Changes"}
+                ? "Simpan Semua Perubahan"
+                : "Save All Changes"}
           </button>
         </div>
       </div>
@@ -981,6 +1562,7 @@ export default function AdminAboutPage() {
             if (cropTarget === "g1") setG1(slot);
             if (cropTarget === "g2") setG2(slot);
             if (cropTarget === "g3") setG3(slot);
+            if (cropTarget === "team") setTeamImg(slot);
             setCropSrc(null);
             setCropTarget(null);
           }}
