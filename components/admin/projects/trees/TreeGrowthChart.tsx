@@ -121,7 +121,7 @@ export default function TreeGrowthChart({
           <div className="rounded-xl bg-emerald-50 p-4">
             <p className="text-sm text-gray-500">Height Growth</p>
             <h4 className="text-xl font-bold">
-              {summary.height_growth_cm ?? "-"} cm
+              {summary.height_growth_delta_cm ?? summary.height_growth_cm ?? "-"} cm
             </h4>
           </div>
 

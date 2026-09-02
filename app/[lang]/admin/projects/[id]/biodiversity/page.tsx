@@ -35,13 +35,16 @@ export default function BiodiversityPage(){
   const [form,setForm] =
     useState({
 
-      species:"",
-      category:"",
-      observation_date:"",
-      quantity:"",
+      species_name:"",
+      species_type:"fauna",
+      observed_date:"",
+      habitat:"",
       notes:""
 
     });
+
+  const [error,setError] =
+    useState<string | null>(null);
 
 
 
@@ -96,26 +99,20 @@ export default function BiodiversityPage(){
     try{
 
 
+      setError(null);
       await createBiodiversity(
         projectId,
-        {
-
-          ...form,
-
-          quantity:
-            Number(form.quantity)
-
-        }
+        form
       );
 
 
 
       setForm({
 
-        species:"",
-        category:"",
-        observation_date:"",
-        quantity:"",
+        species_name:"",
+        species_type:"fauna",
+        observed_date:"",
+        habitat:"",
         notes:""
 
       });
@@ -129,6 +126,7 @@ export default function BiodiversityPage(){
     }catch(error){
 
       console.error(error);
+      setError("Gagal menyimpan observasi. Cek nama spesies, tipe, dan tanggal.");
 
     }
 
@@ -171,59 +169,56 @@ export default function BiodiversityPage(){
           Add Observation
         </h2>
 
-
+        {error && (
+          <p className="mt-3 text-sm text-red-600">{error}</p>
+        )}
 
         <input
           className="input mt-3"
-          placeholder="Species"
-          value={form.species}
+          placeholder="Species name"
+          value={form.species_name}
           onChange={
             e=>setForm({
               ...form,
-              species:e.target.value
+              species_name:e.target.value
             })
           }
         />
 
-
-
-        <input
+        <select
           className="input mt-3"
-          placeholder="Category"
-          value={form.category}
+          value={form.species_type}
           onChange={
             e=>setForm({
               ...form,
-              category:e.target.value
+              species_type:e.target.value
             })
           }
-        />
-
-
+        >
+          <option value="fauna">fauna</option>
+          <option value="flora">flora</option>
+        </select>
 
         <input
           className="input mt-3"
           type="date"
-          value={form.observation_date}
+          value={form.observed_date}
           onChange={
             e=>setForm({
               ...form,
-              observation_date:e.target.value
+              observed_date:e.target.value
             })
           }
         />
 
-
-
         <input
           className="input mt-3"
-          placeholder="Quantity"
-          type="number"
-          value={form.quantity}
+          placeholder="Habitat"
+          value={form.habitat}
           onChange={
             e=>setForm({
               ...form,
-              quantity:e.target.value
+              habitat:e.target.value
             })
           }
         />
@@ -286,17 +281,17 @@ export default function BiodiversityPage(){
             >
 
               <h3 className="font-bold">
-                {item.species}
+                {item.species_name || item.species}
               </h3>
 
 
               <p>
-                Category: {item.category}
+                Type: {item.species_type || item.category || "—"}
               </p>
 
 
               <p>
-                Quantity: {item.quantity}
+                Date: {item.observed_date || item.observation_date || "—"}
               </p>
 
 

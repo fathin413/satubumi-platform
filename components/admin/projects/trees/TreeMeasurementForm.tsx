@@ -77,7 +77,8 @@ export default function TreeMeasurementForm({
 
           diameter_cm: Number(form.diameter_cm),
 
-          health_status: form.health_status,
+          dbh_cm: Number(form.diameter_cm),
+          condition: form.health_status,
 
           notes: form.notes,
         },

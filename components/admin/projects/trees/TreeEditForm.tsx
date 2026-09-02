@@ -81,7 +81,7 @@ export default function TreeEditForm({
 
 
       planting_date:
-        tree.planting_date ?? "",
+        (tree.planting_date || "").slice(0, 10),
 
 
       condition:
@@ -435,8 +435,8 @@ export default function TreeEditForm({
           </option>
 
 
-          <option value="damaged">
-            Damaged
+          <option value="stressed">
+            Stressed
           </option>
 
 

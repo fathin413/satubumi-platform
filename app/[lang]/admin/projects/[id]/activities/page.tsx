@@ -40,12 +40,12 @@ export default function ActivitiesPage(){
   const [form,setForm] =
     useState({
 
-      activity_type:"",
+      activity_type:"planting",
       activity_date:"",
-      description:"",
+      notes:"",
       target:"",
       realization:"",
-      unit:""
+      unit:"trees"
 
     });
 
@@ -117,12 +117,12 @@ export default function ActivitiesPage(){
 
       setForm({
 
-        activity_type:"",
+        activity_type:"planting",
         activity_date:"",
-        description:"",
+        notes:"",
         target:"",
         realization:"",
-        unit:""
+        unit:"trees"
 
       });
 
@@ -180,9 +180,8 @@ export default function ActivitiesPage(){
 
 
 
-        <input
+        <select
           className="input mt-3"
-          placeholder="Activity Type"
           value={form.activity_type}
           onChange={
             e=>setForm({
@@ -190,7 +189,14 @@ export default function ActivitiesPage(){
               activity_type:e.target.value
             })
           }
-        />
+        >
+          <option value="planting">planting</option>
+          <option value="restoration">restoration</option>
+          <option value="biodiversity_survey">biodiversity_survey</option>
+          <option value="community_development">community_development</option>
+          <option value="fire_prevention">fire_prevention</option>
+          <option value="forest_protection">forest_protection</option>
+        </select>
 
 
 
@@ -210,12 +216,12 @@ export default function ActivitiesPage(){
 
         <input
           className="input mt-3"
-          placeholder="Description"
-          value={form.description}
+          placeholder="Notes"
+          value={form.notes}
           onChange={
             e=>setForm({
               ...form,
-              description:e.target.value
+              notes:e.target.value
             })
           }
         />
@@ -266,7 +272,7 @@ export default function ActivitiesPage(){
 
 
               <p>
-                {item.description}
+                {item.notes || item.description || ""}
               </p>
 
 

@@ -214,10 +214,36 @@ export default function TreeDetailModal({
 
           <Info
 
+            label="Height (cm)"
+
+            value={
+              (tree as any).height_cm ?? "-"
+            }
+
+          />
+
+
+
+          <Info
+
+            label="DBH (cm)"
+
+            value={
+              (tree as any).dbh_cm ?? "-"
+            }
+
+          />
+
+
+
+          <Info
+
             label="Location"
 
             value={
-              tree.location ?? "-"
+              Array.isArray((tree as any).location_geojson?.coordinates)
+                ? `${(tree as any).location_geojson.coordinates[1]}, ${(tree as any).location_geojson.coordinates[0]}`
+                : tree.location ?? "-"
             }
 
           />

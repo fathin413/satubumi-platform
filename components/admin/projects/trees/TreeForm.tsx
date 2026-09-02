@@ -378,7 +378,7 @@ export default function TreeForm({
 
           }
 
-          placeholder="Location"
+          placeholder="Location (lat, lng) e.g. -2.23, 113.85"
 
           className="
           rounded-xl

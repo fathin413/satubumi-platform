@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 
 import {
+  deleteTree,
   getProjectTrees,
   getTreeSummary,
 } from "@/lib/monitorApi";
@@ -27,37 +28,51 @@ export default function TreesPage() {
   const [measurementTree, setMeasurementTree] = useState<any>(null);
   const [growthTree, setGrowthTree] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   async function loadData() {
     try {
       setLoading(true);
-
+      setError(null);
       const [treesData, summaryData] = await Promise.all([
         getProjectTrees(projectId),
         getTreeSummary(projectId),
       ]);
-
-      setTrees(treesData);
+      setTrees(Array.isArray(treesData) ? treesData : []);
       setSummary(summaryData);
-    } catch (error) {
-      console.error("LOAD TREE ERROR:", error);
+    } catch (err) {
+      console.error("LOAD TREE ERROR:", err);
+      setError("Failed to load tree records.");
     } finally {
       setLoading(false);
     }
   }
 
   useEffect(() => {
-    if (projectId) {
-      loadData();
-    }
+    if (projectId) loadData();
   }, [projectId]);
+
+  async function handleDelete(tree: any) {
+    const ok = window.confirm(
+      `Delete tree record #${tree.id} (${tree.species})? This also removes measurement history.`,
+    );
+    if (!ok) return;
+    try {
+      await deleteTree(projectId, String(tree.id));
+      await loadData();
+    } catch (err) {
+      console.error(err);
+      alert(
+        "Delete gagal. Endpoint DELETE tree belum ada di backend. Minta tim BE: DELETE /projects/{id}/trees/{tree_id}. Sementara tandai dead lewat Edit.",
+      );
+    }
+  }
 
   return (
     <main className="min-h-screen bg-[#F1F6F4] p-8">
       <h1 className="text-3xl font-bold text-emerald-950">Tree Management</h1>
-
       <p className="mt-2 text-slate-600">
-        Manage planting records and tree monitoring.
+        Manage planting records, measurements, and growth tracking.
       </p>
 
       <section className="mt-8">
@@ -69,6 +84,7 @@ export default function TreesPage() {
       </section>
 
       <section className="mt-8">
+        {error && <p className="mb-4 text-sm text-red-600">{error}</p>}
         {loading ? (
           <div>Loading trees...</div>
         ) : (
@@ -78,6 +94,7 @@ export default function TreesPage() {
             onEdit={setEditTree}
             onMeasurement={setMeasurementTree}
             onGrowth={setGrowthTree}
+            onDelete={handleDelete}
           />
         )}
       </section>
@@ -90,35 +107,47 @@ export default function TreesPage() {
       )}
 
       {editTree && (
-        <TreeEditForm
-          projectId={projectId}
-          tree={editTree}
-          onUpdated={() => {
-            setEditTree(null);
-            loadData();
-          }}
-          onClose={() => setEditTree(null)}
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 overflow-y-auto">
+          <div className="w-full max-w-lg">
+            <TreeEditForm
+              projectId={projectId}
+              tree={editTree}
+              onUpdated={() => {
+                setEditTree(null);
+                loadData();
+              }}
+              onClose={() => setEditTree(null)}
+            />
+          </div>
+        </div>
       )}
 
       {measurementTree && (
-        <TreeMeasurementForm
-          projectId={projectId}
-          treeId={String(measurementTree.id)}
-          onCreated={() => {
-            setMeasurementTree(null);
-            loadData();
-          }}
-          onClose={() => setMeasurementTree(null)}
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 overflow-y-auto">
+          <div className="w-full max-w-lg">
+            <TreeMeasurementForm
+              projectId={projectId}
+              treeId={String(measurementTree.id)}
+              onCreated={() => {
+                setMeasurementTree(null);
+                loadData();
+              }}
+              onClose={() => setMeasurementTree(null)}
+            />
+          </div>
+        </div>
       )}
 
       {growthTree && (
-        <TreeGrowthChart
-          projectId={projectId}
-          treeId={String(growthTree.id)}
-          onClose={() => setGrowthTree(null)}
-        />
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 overflow-y-auto">
+          <div className="w-full max-w-4xl">
+            <TreeGrowthChart
+              projectId={projectId}
+              treeId={String(growthTree.id)}
+              onClose={() => setGrowthTree(null)}
+            />
+          </div>
+        </div>
       )}
     </main>
   );

@@ -65,6 +65,8 @@ export default function LoginPage() {
         const me = await meRes.json();
         if (me.role === "admin" || me.role === "super_admin") {
           router.push(`/${lang}/admin`);
+        } else if (me.role === "field_officer") {
+          router.push(`/${lang}/monitor`);
         } else {
           router.push(`/${lang}/products`);
         }
