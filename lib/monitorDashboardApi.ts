@@ -15,6 +15,15 @@ export async function getMonitorDashboard(
   projectId:string
 ){
 
+  async function soft(url: string) {
+    try {
+      return await fetchJson(url);
+    } catch (error) {
+      console.error(error);
+      return null;
+    }
+  }
+
   const [
     dashboard,
     progress,
@@ -25,14 +34,14 @@ export async function getMonitorDashboard(
     activities,
     baseline
   ] = await Promise.all([
-    fetchJson(`${API_URL}/projects/${projectId}/dashboard`),
-    fetchJson(`${API_URL}/projects/${projectId}/progress`),
-    fetchJson(`${API_URL}/projects/${projectId}/map/layers`),
-    fetchJson(`${API_URL}/projects/${projectId}/indicators`),
-    fetchJson(`${API_URL}/projects/${projectId}/report/summary`),
-    fetchJson(`${API_URL}/projects/${projectId}/alerts`),
-    fetchJson(`${API_URL}/projects/${projectId}/activities`),
-    fetchJson(`${API_URL}/projects/${projectId}/compare/baseline`),
+    soft(`${API_URL}/projects/${projectId}/dashboard`),
+    soft(`${API_URL}/projects/${projectId}/progress`),
+    soft(`${API_URL}/projects/${projectId}/map/layers`),
+    soft(`${API_URL}/projects/${projectId}/indicators`),
+    soft(`${API_URL}/projects/${projectId}/report/summary`),
+    soft(`${API_URL}/projects/${projectId}/alerts`),
+    soft(`${API_URL}/projects/${projectId}/activities`),
+    soft(`${API_URL}/projects/${projectId}/compare/baseline`),
   ]);
 
   return {

@@ -221,10 +221,8 @@ export default function TreeMeasurementForm({
           "
         >
           <option value="healthy">Healthy</option>
-
-          <option value="warning">Warning</option>
-
-          <option value="critical">Critical</option>
+<option value="stressed">Stressed</option>
+<option value="dead">Dead</option>
         </select>
 
         <textarea
